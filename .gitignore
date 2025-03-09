@@ -1,0 +1,29 @@
+/build/
+
+# 忽略测试和日志文件
+Testing/
+CTestCostData.txt
+LastTest.log
+
+
+# 忽略生成的可执行文件和库文件
+/IMServer
+/libMyServerLib.a
+/tests/MyServerTests
+
+# 忽略 CMake 生成的临时文件
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+Makefile
+cmake_install.cmake
+CTestTestfile.cmake
+
+
+# 忽略其他临时文件
+*.o
+*.a
+*.so
+*.out
+*.log
+
