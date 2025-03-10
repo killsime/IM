@@ -15,7 +15,7 @@ add_library(MyServerLib
     net/Connection.hpp
     net/Epoll.hpp
     net/EventLoop.hpp
-    net/SocketServer.hpp
+    net/Socket.hpp
     net/Transfer/FileTransfer.hpp
     net/Transfer/TextTransfer.hpp
     net/protocol/Chunk.hpp
