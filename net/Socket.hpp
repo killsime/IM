@@ -175,6 +175,40 @@ public:
         return true;
     }
 
+    // 设置 Socket 为非阻塞模式
+    bool setNonBlocking() {
+    #ifdef _WIN32
+        unsigned long mode = 1; // 1 表示非阻塞，0 表示阻塞
+        if (ioctlsocket(fd, FIONBIO, &mode) == SOCKET_ERROR) {
+            printf("Failed to set non-blocking mode.\n");
+            return false;
+        }
+    #else
+        int flags = fcntl(fd, F_GETFL, 0);
+        if (flags == -1) {
+            printf("Failed to get socket flags.\n");
+            return false;
+        }
+        if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+            printf("Failed to set non-blocking mode.\n");
+            return false;
+        }
+    #endif
+        return true;
+    }
+
+    // 设置发送和接收缓冲区大小
+    bool setBufferSize(int size) {
+        if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (const char*)&size, sizeof(size)) == SOCKET_ERROR) {
+            printf("Failed to set send buffer size.\n");
+            return false;
+        }
+        if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (const char*)&size, sizeof(size)) == SOCKET_ERROR) {
+            printf("Failed to set receive buffer size.\n");
+            return false;
+        }
+        return true;
+    }
     // 获取文件描述符
     int getFd() const { return fd; }
 

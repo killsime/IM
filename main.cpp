@@ -1,41 +1,58 @@
-#include "net/Epoll.hpp"
 #include "net/Socket.hpp"
+#include "net/Transfer/FileTransfer.hpp"
 #include <iostream>
+#include <filesystem> // C++17
+
+// 确保目录存在
+void ensureDirectoryExists(const std::string& path) {
+    if (!std::filesystem::exists(path)) {
+        std::filesystem::create_directories(path);
+    }
+}
 
 int main() {
-    // 创建服务端 Socket
-    Socket server;
-    server.initServer(9527); // 初始化服务端
+    // 初始化服务端 Socket
+    Socket socket;
+    socket.initServer(9527);
+    // 确保 ./data 目录存在
+    ensureDirectoryExists("./data");
 
-    // 创建 Epoll 实例
-    Epoll epoll;
-    epoll.add(server); // 将服务端 Socket 添加到 epoll
-
+    // 循环处理客户端连接
     while (true) {
-        // 等待事件
-        std::vector<Socket> active_sockets = epoll.wait();
-        for (Socket& socket : active_sockets) {
-            if (socket.getFd() == server.getFd()) {
-                // 有新客户端连接
-                Socket client = server.accept();
-                if (client.getFd() != INVALID_SOCKET) {
-                    printf("New client connected: fd=%d\n", client.getFd());
-                    epoll.add(client); // 将客户端 Socket 添加到 epoll
-                }
-            } else {
-                // 客户端 Socket 有数据可读
-                std::string data;
-                if (socket.recv(data)) {
-                    printf("Received data from fd=%d: %s\n", socket.getFd(), data.c_str());
-                    socket.send("Hello from server!"); // 发送响应
-                } else {
-                    // 客户端断开连接
-                    printf("Client fd=%d disconnected.\n", socket.getFd());
-                    epoll.del(socket); // 从 epoll 中删除客户端 Socket
-                    socket.close();
-                }
-            }
+        std::cout << "Waiting for client connection..." << std::endl;
+
+        // 接受客户端连接
+        Socket client = socket.accept();
+        if (client.getFd() == INVALID_SOCKET) {
+            std::cerr << "Failed to accept client connection." << std::endl;
+            continue; // 继续等待下一个客户端
         }
+
+        std::cout << "Client connected." << std::endl;
+
+        // 初始化文件传输
+        FileTransfer transfer(client);
+
+        // 接收文件
+        std::string receivedFilePath = "./data/received_testfile.txt"; // 保存到 ./data 目录
+        if (!transfer.receiveFile(receivedFilePath)) {
+            std::cerr << "Failed to receive file." << std::endl;
+            client.close();
+            continue; // 继续等待下一个客户端
+        }
+        std::cout << "File received and saved to: " << receivedFilePath << std::endl;
+
+        // 将接收到的文件发送回客户端
+        if (!transfer.sendFile(receivedFilePath)) {
+            std::cerr << "Failed to send file back to client." << std::endl;
+            client.close();
+            continue; // 继续等待下一个客户端
+        }
+        std::cout << "File sent back to client successfully." << std::endl;
+
+        // 关闭当前客户端连接
+        client.close();
+        std::cout << "Client disconnected." << std::endl;
     }
 
     return 0;

@@ -18,8 +18,7 @@ add_library(MyServerLib
     net/Socket.hpp
     net/Transfer/FileTransfer.hpp
     net/Transfer/TextTransfer.hpp
-    net/protocol/Chunk.hpp
-    net/protocol/Pack.hpp
+    net/Pack.hpp
     server/Message.hpp
     server/Msghander.hpp
     sql/Database.hpp
