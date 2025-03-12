@@ -19,6 +19,7 @@
     #include <unistd.h>
     #include <arpa/inet.h>
     #include <fcntl.h>
+    #include <netinet/tcp.h>
     #define SOCKET_ERROR (-1)
     #define INVALID_SOCKET (-1)
     #define GET_LAST_ERROR errno
@@ -66,12 +67,19 @@ public:
         }
     }
 
+
     // 初始化客户端
     void initClient(const std::string& ip = DEFAULT_IP, int port = DEFAULT_PORT) {
         fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         if (fd == INVALID_SOCKET) {
             printf("Failed to create socket.\n");
             return;
+        }
+
+        // 禁用 Nagle 算法
+        int flag = 1;
+        if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(flag)) == SOCKET_ERROR) {
+            printf("Failed to disable Nagle (TCP_NODELAY).\n");
         }
 
         struct sockaddr_in server_addr;
@@ -96,9 +104,15 @@ public:
 
         // 设置 SO_REUSEADDR 选项
         int opt = 1;
-        if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt)) == SOCKET_ERROR) {
+        if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt)) == SOCKET_ERROR) {
             printf("Failed to set SO_REUSEADDR.\n");
             return;
+        }
+
+        // 禁用 Nagle 算法
+        int flag = 1;
+        if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(flag)) == SOCKET_ERROR) {
+            printf("Failed to disable Nagle (_NODELAY).\n");
         }
 
         // 绑定地址和端口
@@ -118,6 +132,7 @@ public:
             return;
         }
     }
+
 
     // 服务端接受客户端连接
     Socket accept() {

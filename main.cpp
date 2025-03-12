@@ -1,59 +1,36 @@
-#include "net/Socket.hpp"
-#include "net/Transfer/FileTransfer.hpp"
 #include <iostream>
-#include <filesystem> // C++17
+#include <mutex>
+#include <condition_variable>
+#include <future>
+#include "utils/ThreadPool.hpp"
 
-// 确保目录存在
-void ensureDirectoryExists(const std::string& path) {
-    if (!std::filesystem::exists(path)) {
-        std::filesystem::create_directories(path);
+// 全局变量用于同步
+std::mutex mtx;
+std::condition_variable cv;
+int turn = 1; // 1表示轮到打印1，2表示轮到打印2
+
+// 打印函数
+void printNumber(int num, int targetTurn) {
+    for (int i = 0; i < 5; ++i) {
+        std::unique_lock<std::mutex> lock(mtx);
+        cv.wait(lock, [targetTurn] { return turn == targetTurn; }); // 等待轮到当前任务
+        std::cout << num << std::endl;
+        turn = (targetTurn == 1) ? 2 : 1; // 切换为另一个任务
+        cv.notify_all(); // 通知另一个线程
     }
 }
 
 int main() {
-    // 初始化服务端 Socket
-    Socket socket;
-    socket.initServer(9527);
-    // 确保 ./data 目录存在
-    ensureDirectoryExists("./data");
+    // 创建一个包含2个线程的线程池
+    ThreadPool pool(2);
 
-    // 循环处理客户端连接
-    while (true) {
-        std::cout << "Waiting for client connection..." << std::endl;
+    // 提交任务到线程池
+    auto future1 = pool.enqueue([] { printNumber(1, 1); });
+    auto future2 = pool.enqueue([] { printNumber(2, 2); });
 
-        // 接受客户端连接
-        Socket client = socket.accept();
-        if (client.getFd() == INVALID_SOCKET) {
-            std::cerr << "Failed to accept client connection." << std::endl;
-            continue; // 继续等待下一个客户端
-        }
-
-        std::cout << "Client connected." << std::endl;
-
-        // 初始化文件传输
-        FileTransfer transfer(client);
-
-        // 接收文件
-        std::string receivedFilePath = "./data/received_testfile.txt"; // 保存到 ./data 目录
-        if (!transfer.receiveFile(receivedFilePath)) {
-            std::cerr << "Failed to receive file." << std::endl;
-            client.close();
-            continue; // 继续等待下一个客户端
-        }
-        std::cout << "File received and saved to: " << receivedFilePath << std::endl;
-
-        // 将接收到的文件发送回客户端
-        if (!transfer.sendFile(receivedFilePath)) {
-            std::cerr << "Failed to send file back to client." << std::endl;
-            client.close();
-            continue; // 继续等待下一个客户端
-        }
-        std::cout << "File sent back to client successfully." << std::endl;
-
-        // 关闭当前客户端连接
-        client.close();
-        std::cout << "Client disconnected." << std::endl;
-    }
+    // 等待任务完成
+    future1.get();
+    future2.get();
 
     return 0;
 }
