@@ -23,7 +23,6 @@ double multiply(double a, double b) {
 
 int main() {
     // 创建一个包含 4 个线程的线程池
-    ThreadPool& pool = ThreadPool::getInstance(4, 8);
 
     // 提交多个不同类型的任务到线程池
     auto future1 = pool.enqueue(add, 10, 20);          // 提交 add 任务
