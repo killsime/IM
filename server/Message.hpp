@@ -6,12 +6,19 @@
 #include <array>
 #include <iostream>
 
+enum class UserAction : uint8_t
+{
+    HEARTBEAT = 0, // 心跳包
+    LOGIN = 1,     // 登录
+    LOGOUT = 2,    // 登出
+    REGISTER = 3   // 注册
+};
 struct UserData
 {
     uint32_t uid;
     std::array<char, 32> username;
     std::array<char, 32> password;
-    uint8_t action;
+    UserAction action;
 };
 
 struct TextData

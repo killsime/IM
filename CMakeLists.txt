@@ -12,9 +12,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # 添加库
 add_library(MyServerLib
     main.cpp
-    net/Connection.hpp
+    EventLoop.hpp
+    net/ConnectionMgr.hpp
     net/Epoll.hpp
-    net/EventLoop.hpp
     net/Socket.hpp
     net/FileTransfer.hpp
     net/TextTransfer.hpp

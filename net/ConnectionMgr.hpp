@@ -8,8 +8,10 @@
 #include <unistd.h>
 #include <iostream>
 #include <mutex>
-#include <thread>
+#include <functional>
 #include <chrono>
+#include <memory>
+#include <thread>
 
 // 网络信息结构体
 struct NetInfo
@@ -22,10 +24,10 @@ struct NetInfo
         : client_fd(fd), online(true), ip(client_ip) {}
 };
 
-// 连接管理类
+// 连接管理基类
 class Connections
 {
-private:
+protected:
     std::unordered_map<std::string, NetInfo> uidToNetInfo; // UID -> NetInfo
     std::mutex mtx;                                        // 保证线程安全
 
@@ -74,6 +76,10 @@ public:
         }
     }
 
+    std::unordered_map<std::string, NetInfo> getConnections()
+    {
+        return uidToNetInfo;
+    }
     // 扫描并关闭所有不在线的 fd
     void scanAndCloseInactive()
     {
@@ -88,48 +94,38 @@ public:
             }
             else
             {
+                it->second.online = false;
                 ++it;
             }
         }
     }
 };
 
+// 文本消息连接管理
+class TextConnection : public Connections
+{
+    // 可以扩展文本消息特有的功能
+};
+
+// IO 连接管理
+class IOConnection : public Connections
+{
+    // 可以扩展 IO 特有的功能
+};
+
 // 连接管理器
 class ConnectionMgr
 {
 private:
-    Connections connections; // 连接管理实例
-    std::thread scanThread;  // 扫描线程
-    bool running;            // 是否运行中
+    TextConnection textConnections; // 文本消息连接管理
+    IOConnection ioConnections;     // IO 连接管理
 
     // 单例模式
-    ConnectionMgr() : running(true)
-    {
-        scanThread = std::thread(&ConnectionMgr::scanLoop, this);
-    }
+    ConnectionMgr() = default;
     ConnectionMgr(const ConnectionMgr &) = delete;
     ConnectionMgr &operator=(const ConnectionMgr &) = delete;
 
-    // 扫描循环
-    void scanLoop()
-    {
-        while (running)
-        {
-            std::this_thread::sleep_for(std::chrono::seconds(10)); // 每 10 秒扫描一次
-            connections.scanAndCloseInactive();
-        }
-    }
-
 public:
-    ~ConnectionMgr()
-    {
-        running = false;
-        if (scanThread.joinable())
-        {
-            scanThread.join();
-        }
-    }
-
     // 获取单例实例
     static ConnectionMgr &getInstance()
     {
@@ -137,10 +133,28 @@ public:
         return instance;
     }
 
-    // 获取连接管理实例
-    Connections &getConnections()
+    // 获取文本消息连接管理实例
+    TextConnection &getTextConnections()
     {
-        return connections;
+        return textConnections;
+    }
+
+    // 获取 IO 连接管理实例
+    IOConnection &getIOConnections()
+    {
+        return ioConnections;
+    }
+
+    // 启动定时器扫描
+    void startScanTimer(std::function<void()> callback, int intervalSeconds)
+    {
+        std::thread([callback, intervalSeconds]()
+                    {
+            while (true) {
+                std::this_thread::sleep_for(std::chrono::seconds(intervalSeconds));
+                callback();
+            } })
+            .detach();
     }
 };
 

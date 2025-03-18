@@ -8,13 +8,13 @@ void producer()
 {
     MessageQueue &mq = MessageQueue::getInstance();
 
-    UserData user{1, "Alice", "password123", 0};
+    UserData user{1, "Alice", "password123", UserAction::HEARTBEAT};
     TextData text{1001, 1002, "Hello, World!"};
     FileData file{2001, 2002, "example.txt", 1024};
 
-    mq.pushToReceiveQueue(Message(user)); // 使用 Message 的构造函数
-    mq.pushToReceiveQueue(Message(text)); // 使用 Message 的构造函数
-    mq.pushToReceiveQueue(Message(file)); // 使用 Message 的构造函数
+    mq.pushToRecvQueue(Message(user)); // 使用 Message 的构造函数
+    mq.pushToRecvQueue(Message(text)); // 使用 Message 的构造函数
+    mq.pushToRecvQueue(Message(file)); // 使用 Message 的构造函数
 
     std::cout << "Producer: Added messages to receive queue." << std::endl;
 }
@@ -26,30 +26,30 @@ void consumer()
 
     while (true)
     {
-        Message message = mq.popFromReceiveQueue();
+        Message message = mq.popFromRecvQueue();
         switch (message.type)
         {
         case Message::Type::USER:
         {
             auto *user = static_cast<UserData *>(message.data.get());
-            std::cout << "Consumer: Received UserData - Username: " << user->username.data() << std::endl;
+            std::cout << "Consumer: Recvd UserData - Username: " << user->username.data() << std::endl;
             break;
         }
         case Message::Type::TEXT:
         {
             auto *text = static_cast<TextData *>(message.data.get());
-            std::cout << "Consumer: Received TextData - Content: " << text->content.data() << std::endl;
+            std::cout << "Consumer: Recvd TextData - Content: " << text->content.data() << std::endl;
             break;
         }
         case Message::Type::FILE:
         {
             auto *file = static_cast<FileData *>(message.data.get());
-            std::cout << "Consumer: Received FileData - Filename: " << file->filename.data() << std::endl;
+            std::cout << "Consumer: Recvd FileData - Filename: " << file->filename.data() << std::endl;
             break;
         }
         }
 
-        if (mq.isReceiveQueueEmpty())
+        if (mq.isRecvQueueEmpty())
         {
             break;
         }

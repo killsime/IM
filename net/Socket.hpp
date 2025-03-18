@@ -9,35 +9,38 @@
 #include <cstdio> // for printf
 
 #ifdef _WIN32
-    #include <winsock2.h>
-    #include <ws2tcpip.h>
-    #pragma comment(lib, "ws2_32.lib")
-    #define SOCKET_ERROR (-1)
-    #define INVALID_SOCKET (~0)
-    #define GET_LAST_ERROR WSAGetLastError()
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#pragma comment(lib, "ws2_32.lib")
+#define SOCKET_ERROR (-1)
+#define INVALID_SOCKET (~0)
+#define GET_LAST_ERROR WSAGetLastError()
 #else
-    #include <unistd.h>
-    #include <arpa/inet.h>
-    #include <fcntl.h>
-    #include <netinet/tcp.h>
-    #define SOCKET_ERROR (-1)
-    #define INVALID_SOCKET (-1)
-    #define GET_LAST_ERROR errno
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <fcntl.h>
+#include <netinet/tcp.h>
+#define SOCKET_ERROR (-1)
+#define INVALID_SOCKET (-1)
+#define GET_LAST_ERROR errno
 #endif
 
 // 定义常量宏
-#define BUFFER_SIZE 1024   // 接收缓冲区大小
-#define DEFAULT_PORT 9527  // 默认端口号
+#define BUFFER_SIZE 1024       // 接收缓冲区大小
+#define DEFAULT_PORT 9527      // 默认端口号
 #define DEFAULT_IP "127.0.0.1" // 默认 IP 地址
-#define MAX_BACKLOG 1000   // 最大连接队列长度
+#define MAX_BACKLOG 1000       // 最大连接队列长度
 
-class Socket {
+class Socket
+{
 public:
     // 默认构造函数
-    Socket() : fd(INVALID_SOCKET) {
+    Socket() : fd(INVALID_SOCKET)
+    {
 #ifdef _WIN32
         WSADATA wsaData;
-        if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
+        {
             printf("WSAStartup failed.\n");
             return;
         }
@@ -48,15 +51,18 @@ public:
     Socket(int client_fd) : fd(client_fd) {}
 
     // 析构函数
-    ~Socket() {
+    ~Socket()
+    {
 #ifdef _WIN32
         WSACleanup();
 #endif
     }
 
     // 关闭 Socket
-    void close() {
-        if (fd != INVALID_SOCKET) {
+    void close()
+    {
+        if (fd != INVALID_SOCKET)
+        {
 #ifdef _WIN32
             closesocket(fd);
 #else
@@ -67,18 +73,20 @@ public:
         }
     }
 
-
     // 初始化客户端
-    void initClient(const std::string& ip = DEFAULT_IP, int port = DEFAULT_PORT) {
+    bool initClient(const std::string &ip = DEFAULT_IP, int port = DEFAULT_PORT)
+    {
         fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        if (fd == INVALID_SOCKET) {
+        if (fd == INVALID_SOCKET)
+        {
             printf("Failed to create socket.\n");
-            return;
+            return false;
         }
 
         // 禁用 Nagle 算法
         int flag = 1;
-        if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(flag)) == SOCKET_ERROR) {
+        if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(flag)) == SOCKET_ERROR)
+        {
             printf("Failed to disable Nagle (TCP_NODELAY).\n");
         }
 
@@ -87,31 +95,38 @@ public:
         server_addr.sin_port = htons(port);
         inet_pton(AF_INET, ip.c_str(), &server_addr.sin_addr);
 
-        if (::connect(fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
+        if (::connect(fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == SOCKET_ERROR)
+        {
             close();
             printf("Failed to connect to server.\n");
-            return;
+            return false;
         }
+
+        return true;
     }
 
     // 初始化服务端
-    void initServer(int port = DEFAULT_PORT) {
+    bool initServer(int port = DEFAULT_PORT)
+    {
         fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        if (fd == INVALID_SOCKET) {
+        if (fd == INVALID_SOCKET)
+        {
             printf("Failed to create socket.\n");
-            return;
+            return false;
         }
 
         // 设置 SO_REUSEADDR 选项
         int opt = 1;
-        if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt)) == SOCKET_ERROR) {
+        if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) == SOCKET_ERROR)
+        {
             printf("Failed to set SO_REUSEADDR.\n");
-            return;
+            return false;
         }
 
         // 禁用 Nagle 算法
         int flag = 1;
-        if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(flag)) == SOCKET_ERROR) {
+        if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(flag)) == SOCKET_ERROR)
+        {
             printf("Failed to disable Nagle (_NODELAY).\n");
         }
 
@@ -121,22 +136,27 @@ public:
         server_addr.sin_addr.s_addr = INADDR_ANY;
         server_addr.sin_port = htons(port);
 
-        if (bind(fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
+        if (bind(fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == SOCKET_ERROR)
+        {
             printf("Failed to bind socket.\n");
-            return;
+            return false;
         }
 
         // 开始监听
-        if (listen(fd, MAX_BACKLOG) == SOCKET_ERROR) {
+        if (listen(fd, MAX_BACKLOG) == SOCKET_ERROR)
+        {
             printf("Failed to listen on socket.\n");
-            return;
+            return false;
         }
+
+        return true;
     }
 
-
     // 服务端接受客户端连接
-    Socket accept() {
-        if (fd == INVALID_SOCKET) {
+    Socket accept()
+    {
+        if (fd == INVALID_SOCKET)
+        {
             printf("Not a server socket or not initialized.\n");
             return Socket(INVALID_SOCKET);
         }
@@ -144,8 +164,9 @@ public:
         struct sockaddr_in client_addr;
         socklen_t client_addr_len = sizeof(client_addr);
 
-        int client_fd = ::accept(fd, (struct sockaddr*)&client_addr, &client_addr_len);
-        if (client_fd == INVALID_SOCKET) {
+        int client_fd = ::accept(fd, (struct sockaddr *)&client_addr, &client_addr_len);
+        if (client_fd == INVALID_SOCKET)
+        {
             printf("Failed to accept client connection.\n");
             return Socket(INVALID_SOCKET);
         }
@@ -154,14 +175,17 @@ public:
     }
 
     // 发送数据
-    bool send(const std::string& data) {
-        if (fd == INVALID_SOCKET) {
+    bool send(const std::string &data)
+    {
+        if (fd == INVALID_SOCKET)
+        {
             printf("Invalid socket.\n");
             return false;
         }
 
         int bytes_sent = ::send(fd, data.c_str(), static_cast<int>(data.size()), 0);
-        if (bytes_sent == SOCKET_ERROR) {
+        if (bytes_sent == SOCKET_ERROR)
+        {
             printf("Failed to send data.\n");
             return false;
         }
@@ -169,18 +193,23 @@ public:
     }
 
     // 接收数据
-    bool recv(std::string& buffer) {
-        if (fd == INVALID_SOCKET) {
+    bool recv(std::string &buffer)
+    {
+        if (fd == INVALID_SOCKET)
+        {
             printf("Invalid socket.\n");
             return false;
         }
 
         char temp_buffer[BUFFER_SIZE];
         int bytes_received = ::recv(fd, temp_buffer, sizeof(temp_buffer), 0);
-        if (bytes_received == SOCKET_ERROR) {
+        if (bytes_received == SOCKET_ERROR)
+        {
             printf("Failed to receive data.\n");
             return false;
-        } else if (bytes_received == 0) {
+        }
+        else if (bytes_received == 0)
+        {
             // 对端关闭连接
             printf("Connection closed by peer.\n");
             return false;
@@ -191,34 +220,41 @@ public:
     }
 
     // 设置 Socket 为非阻塞模式
-    bool setNonBlocking() {
-    #ifdef _WIN32
+    bool setNonBlocking()
+    {
+#ifdef _WIN32
         unsigned long mode = 1; // 1 表示非阻塞，0 表示阻塞
-        if (ioctlsocket(fd, FIONBIO, &mode) == SOCKET_ERROR) {
+        if (ioctlsocket(fd, FIONBIO, &mode) == SOCKET_ERROR)
+        {
             printf("Failed to set non-blocking mode.\n");
             return false;
         }
-    #else
+#else
         int flags = fcntl(fd, F_GETFL, 0);
-        if (flags == -1) {
+        if (flags == -1)
+        {
             printf("Failed to get socket flags.\n");
             return false;
         }
-        if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+        if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1)
+        {
             printf("Failed to set non-blocking mode.\n");
             return false;
         }
-    #endif
+#endif
         return true;
     }
 
     // 设置发送和接收缓冲区大小
-    bool setBufferSize(int size) {
-        if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (const char*)&size, sizeof(size)) == SOCKET_ERROR) {
+    bool setBufferSize(int size)
+    {
+        if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (const char *)&size, sizeof(size)) == SOCKET_ERROR)
+        {
             printf("Failed to set send buffer size.\n");
             return false;
         }
-        if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (const char*)&size, sizeof(size)) == SOCKET_ERROR) {
+        if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (const char *)&size, sizeof(size)) == SOCKET_ERROR)
+        {
             printf("Failed to set receive buffer size.\n");
             return false;
         }

@@ -1,3 +1,4 @@
+#include "net/Epoll.hpp"
 #include "net/Socket.hpp"
 #include "net/ConnectionMgr.hpp"
 #include <iostream>
@@ -8,6 +9,13 @@ int main()
     server.initServer(9527);
 
     ConnectionMgr &mgr = ConnectionMgr::getInstance();
+
+    // 启动定时器，每 10 秒扫描一次
+    mgr.startScanTimer([]()
+                       {
+        std::cout << "Scanning inactive connections..." << std::endl;
+        ConnectionMgr::getInstance().getTextConnections().scanAndCloseInactive();
+        ConnectionMgr::getInstance().getIOConnections().scanAndCloseInactive(); }, 10);
 
     while (1)
     {
@@ -22,7 +30,8 @@ int main()
         if (client.recv(uid))
         {
             std::cout << "Received UID: " << uid << std::endl;
-            mgr.getConnections().add(uid, client.getFd());
+            // 将连接添加到文本消息管理
+            mgr.getTextConnections().add(uid, client.getFd());
         }
 
         // 发送欢迎消息

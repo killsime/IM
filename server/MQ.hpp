@@ -9,12 +9,12 @@
 class MessageQueue
 {
 private:
-    std::queue<Message> receiveQueue;  // 接收队列
-    std::queue<Message> sendQueue;     // 发送队列
-    std::mutex receiveMutex;           // 接收队列的互斥锁
-    std::mutex sendMutex;              // 发送队列的互斥锁
-    std::condition_variable receiveCV; // 接收队列的条件变量
-    std::condition_variable sendCV;    // 发送队列的条件变量
+    std::queue<Message> recvQueue;  // 接收队列
+    std::queue<Message> sendQueue;  // 发送队列
+    std::mutex recvMutex;           // 接收队列的互斥锁
+    std::mutex sendMutex;           // 发送队列的互斥锁
+    std::condition_variable recvCV; // 接收队列的条件变量
+    std::condition_variable sendCV; // 发送队列的条件变量
 
     // 单例模式：私有构造函数
     MessageQueue() = default;
@@ -32,21 +32,21 @@ public:
     }
 
     // 将消息推入接收队列
-    void pushToReceiveQueue(Message &&message)
+    void pushToRecvQueue(Message &&message)
     {
-        std::unique_lock<std::mutex> lock(receiveMutex);
-        receiveQueue.push(std::move(message)); // 使用 std::move
-        receiveCV.notify_one();
+        std::unique_lock<std::mutex> lock(recvMutex);
+        recvQueue.push(std::move(message)); // 使用 std::move
+        recvCV.notify_one();
     }
 
     // 从接收队列取出消息
-    Message popFromReceiveQueue()
+    Message popFromRecvQueue()
     {
-        std::unique_lock<std::mutex> lock(receiveMutex);
-        receiveCV.wait(lock, [this]
-                       { return !receiveQueue.empty(); }); // 等待队列不为空
-        Message message = std::move(receiveQueue.front()); // 使用 std::move
-        receiveQueue.pop();
+        std::unique_lock<std::mutex> lock(recvMutex);
+        recvCV.wait(lock, [this]
+                    { return !recvQueue.empty(); });    // 等待队列不为空
+        Message message = std::move(recvQueue.front()); // 使用 std::move
+        recvQueue.pop();
         return message;
     }
 
@@ -70,10 +70,10 @@ public:
     }
 
     // 检查接收队列是否为空
-    bool isReceiveQueueEmpty()
+    bool isRecvQueueEmpty()
     {
-        std::unique_lock<std::mutex> lock(receiveMutex);
-        return receiveQueue.empty();
+        std::unique_lock<std::mutex> lock(recvMutex);
+        return recvQueue.empty();
     }
 
     // 检查发送队列是否为空
