@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <array>
 #include <iostream>
+#include <array>
+#include <cstdint>
 
 enum class UserAction : uint8_t
 {
@@ -13,6 +15,19 @@ enum class UserAction : uint8_t
     LOGOUT = 2,    // 登出
     REGISTER = 3   // 注册
 };
+
+enum class TextType : uint8_t
+{
+    PRIVATE = 0, // 私发
+    GROUP = 1    // 群发
+};
+
+enum class FileAction : uint8_t
+{
+    UPLOAD = 0,  // 上传
+    DOWNLOAD = 1 // 下载
+};
+
 struct UserData
 {
     uint32_t uid;
@@ -23,17 +38,20 @@ struct UserData
 
 struct TextData
 {
-    uint32_t sender;
-    uint32_t receiver;
-    std::array<char, 512> content;
+    uint32_t sender;               // 发送者UID
+    uint32_t receiver;             // 接收者UID（私发时为单个用户UID，群发时为群组ID）
+    std::array<char, 512> content; // 消息内容
+    TextType type;                 // 消息类型：私发或群发
 };
 
 struct FileData
 {
-    uint32_t sender;
-    uint32_t receiver;
-    std::array<char, 256> filename;
-    uint64_t filesize;
+    uint32_t sender;                // 发送者UID
+    uint32_t receiver;              // 接收者UID（上传时为服务器UID，下载时为请求者UID）
+    std::array<char, 256> filename; // 文件名
+    uint64_t filesize;              // 文件大小
+    uint64_t offset;                // 文件偏移量（用于断点续传）
+    FileAction action;              // 文件操作：上传或下载
 };
 
 class Message

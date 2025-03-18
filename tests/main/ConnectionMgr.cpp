@@ -10,12 +10,12 @@ int main()
 
     ConnectionMgr &mgr = ConnectionMgr::getInstance();
 
-    // 启动定时器，每 10 秒扫描一次
+    // 启动定时器，每 60 秒扫描一次
     mgr.startScanTimer([]()
                        {
         std::cout << "Scanning inactive connections..." << std::endl;
         ConnectionMgr::getInstance().getTextConnections().scanAndCloseInactive();
-        ConnectionMgr::getInstance().getIOConnections().scanAndCloseInactive(); }, 10);
+        ConnectionMgr::getInstance().getIOConnections().scanAndCloseInactive(); }, 60);
 
     while (1)
     {

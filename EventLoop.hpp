@@ -36,6 +36,9 @@ public:
         }
 
         startHeartbeatChecker();
+        std::thread([this]()
+                    { sendMessages(); })
+            .detach();
         return true;
     }
 
@@ -143,7 +146,34 @@ private:
     void startHeartbeatChecker()
     {
         ConnectionMgr::getInstance().startScanTimer([this]()
-                                                    { ConnectionMgr::getInstance().getTextConnections().scanAndCloseInactive(); }, 60);
+                                                    { ConnectionMgr::getInstance().getTextConnections().scanAndCloseInactive(); }, 600);
+    }
+
+    void sendMessages()
+    {
+        MessageQueue &mq = MessageQueue::getInstance();
+        while (true)
+        {
+            if (!mq.isSendQueueEmpty())
+            {
+                Message msg = mq.popFromSendQueue();
+                if (msg.type == Message::Type::TEXT)
+                {
+                    auto &text = *static_cast<TextData *>(msg.data.get());
+                    int fd = ConnectionMgr::getInstance()
+                                 .getTextConnections()
+                                 .getFd(std::to_string(text.receiver));
+
+                    if (fd != -1)
+                    {
+                        // 构造Pack并发送
+                        Pack pack(2, reinterpret_cast<const char *>(&text), sizeof(TextData));
+                        Socket(fd).send(pack.toString());
+                    }
+                }
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
     }
 
     Socket msgSocket_;
