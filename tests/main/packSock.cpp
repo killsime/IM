@@ -37,3 +37,32 @@ int main()
     server.close();
     return 0;
 }
+
+// #include "Socket.hpp"
+// #include "Pack.hpp"
+// #include <iostream>
+
+// int main()
+// {
+//     Socket client;
+//     client.initClient("127.0.0.1", 9527);
+
+//     // 构造数据
+//     std::string message = "Hello, Server!";
+//     Pack pack(1, message.c_str(), message.size());
+
+//     // 将封包对象转换为字符串
+//     std::string packetData = pack.toString();
+
+//     // 发送数据
+//     if (client.send(packetData))
+//     {
+//         std::cout << "Packet sent successfully!" << std::endl;
+//     }
+//     else
+//     {
+//         std::cerr << "Failed to send packet!" << std::endl;
+//     }
+//     client.close();
+//     return 0;
+// }

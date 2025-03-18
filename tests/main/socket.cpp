@@ -8,8 +8,6 @@ int main() {
 
     Socket client = server.accept();
 
-    
-
     while(1){
         std::string request;
         if (client.recv(request)) {
