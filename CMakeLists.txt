@@ -21,10 +21,10 @@ add_library(MyServerLib
     net/Pack.hpp
     server/Message.hpp
     server/Msghander.hpp
+    server/MQ.hpp
     sql/Database.hpp
     sql/SqlCrud.hpp
     utils/Config.hpp
-    utils/MQ.hpp
     utils/ThreadPool.hpp
 )
 
