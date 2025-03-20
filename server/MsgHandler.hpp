@@ -85,6 +85,8 @@ private:
         if (!transfer.receiveFile(fileName))
         {
             std::cerr << "Failed to receive file: " << fileName << std::endl;
+            ConnectionMgr::getInstance().getIOConnections().removeConnection(file.sender);
+
             return;
         }
 
@@ -101,6 +103,7 @@ private:
         if (!transfer.sendFile(fileName))
         {
             std::cerr << "Failed to send file: " << fileName << std::endl;
+            ConnectionMgr::getInstance().getIOConnections().removeConnection(file.receiver);
             return;
         }
 

@@ -1,8 +1,8 @@
 #ifndef FILETRANSFER_HPP
 #define FILETRANSFER_HPP
 
-#include "Socket.hpp"    // 引用 Socket 类
-#include "FileUtils.hpp" // 引用跨平台文件操作库
+#include "Socket.hpp"
+#include "FileUtils.hpp"
 #include <fstream>
 #include <string>
 #include <vector>
@@ -11,10 +11,16 @@
 #include <iomanip>
 #include <cstring>
 
-// 定义常量
-#define CHUNK_SIZE 1024 * 1024     // 每个分片的大小（1MB）
+#define CHUNK_SIZE 64 * 1024       // 每个分片的大小（1MB）
 #define MAX_RETRIES 3              // 最大重试次数
 #define DEFAULT_REPO_PATH "./repo" // 默认文件存储路径
+
+// 自定义 MIN 函数，避免与 Windows 宏定义冲突
+template <typename T>
+T MIN(T a, T b)
+{
+    return a < b ? a : b;
+}
 
 class FileTransfer
 {
@@ -22,6 +28,7 @@ public:
     FileTransfer(Socket &socket) : socket_(socket), totalBytes_(0), transferredBytes_(0)
     {
         setRepoPath(DEFAULT_REPO_PATH);
+        socket_.setBufferSize(CHUNK_SIZE);
     }
 
     void setRepoPath(const std::string &path)
@@ -50,35 +57,49 @@ public:
 
         totalBytes_ = file.tellg();
         file.seekg(0, std::ios::beg);
-        std::this_thread::sleep_for(std::chrono::seconds(1));
 
-        // 发送文件大小
+        // 等待，确保服务器准备好接收
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
         if (!sendFileSize(totalBytes_))
         {
             std::cerr << "Failed to send file size." << std::endl;
             file.close();
             return false;
         }
+        // 等待, 防止数据包与文件大小沾包
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
+        // 发送文件内容
         std::vector<char> buffer(CHUNK_SIZE);
         transferredBytes_ = 0;
+        size_t sequenceNumber = 0; // 序号计数器
 
         while (transferredBytes_ < totalBytes_)
         {
             file.read(buffer.data(), CHUNK_SIZE);
             std::streamsize bytesRead = file.gcount();
 
-            if (!sendChunk(buffer.data(), bytesRead))
+            size_t sent = 0;
+            while (sent < static_cast<size_t>(bytesRead))
             {
-                std::cerr << "Failed to send file chunk." << std::endl;
-                file.close();
-                return false;
+                std::vector<char> chunk(buffer.data() + sent, buffer.data() + bytesRead);
+                size_t result = socket_.send(chunk);
+                if (result == 0)
+                {
+                    std::cerr << "Failed to send file chunk." << std::endl;
+                    file.close();
+                    return false;
+                }
+                sent += result;
+                transferredBytes_ += result;
+
+                // 调试信息：显示每次发送的大小和序号
+                std::cout << "Sent num #" << ++sequenceNumber << ": " << result << " bytes. Total sent: " << transferredBytes_ << " / " << totalBytes_ << std::endl;
             }
-            transferredBytes_ += bytesRead;
         }
 
         file.close();
-        socket_.close();
         std::cout << "File sent successfully." << std::endl;
         return true;
     }
@@ -89,7 +110,7 @@ public:
         std::ofstream file(filePath, std::ios::binary | std::ios::trunc);
         if (!file.is_open())
         {
-            std::cerr << "Failed to open file: " << filePath << std::endl;
+            std::cerr << "Failed to create file: " << filePath << std::endl;
             return false;
         }
 
@@ -101,25 +122,40 @@ public:
             return false;
         }
 
-        transferredBytes_ = 0;
+        // 接收文件内容
         std::vector<char> buffer(CHUNK_SIZE);
+        transferredBytes_ = 0;
+        size_t sequenceNumber = 0; // 序号计数器
 
         while (transferredBytes_ < totalBytes_)
         {
-            uint64_t bytesToRead = std::min<uint64_t>(CHUNK_SIZE, totalBytes_ - transferredBytes_);
+            size_t bytesToRead = MIN(static_cast<size_t>(CHUNK_SIZE),
+                                     static_cast<size_t>(totalBytes_ - transferredBytes_));
 
-            if (!receiveChunk(buffer.data(), bytesToRead))
+            size_t received = 0;
+
+            while (received < bytesToRead)
             {
-                std::cerr << "Failed to receive file chunk. Progress: " << transferredBytes_ << " / " << totalBytes_ << std::endl;
-                file.close();
-                return false;
+                std::vector<char> data;
+                size_t result = socket_.recv(data);
+                if (result == 0)
+                {
+                    std::cerr << "Failed to receive file chunk." << std::endl;
+                    file.close();
+                    return false;
+                }
+
+                size_t readSize = MIN(result, bytesToRead - received);
+                file.write(data.data(), readSize);
+                received += readSize;
+                transferredBytes_ += readSize;
+
+                // 调试信息：显示每次接收的大小和序号
+                std::cout << "Received num #" << ++sequenceNumber << ": " << readSize << " bytes. Total received: " << transferredBytes_ << " / " << totalBytes_ << std::endl;
             }
-            file.write(buffer.data(), bytesToRead);
-            transferredBytes_ += bytesToRead;
         }
 
         file.close();
-        socket_.close();
         std::cout << "File received successfully." << std::endl;
         return true;
     }
@@ -144,66 +180,25 @@ private:
     {
         std::vector<char> sizeData(sizeof(fileSize));
         std::memcpy(sizeData.data(), &fileSize, sizeof(fileSize));
-        return socket_.send(sizeData);
+        size_t result = socket_.send(sizeData);
+
+        std::cout << "Sent file size: " << fileSize << " bytes. Result: " << result << std::endl;
+
+        return result > 0;
     }
 
     bool receiveFileSize(uint64_t &fileSize)
     {
         std::vector<char> sizeData(sizeof(fileSize));
-        if (!socket_.recv(sizeData))
+        size_t result = socket_.recv(sizeData);
+
+        if (result > 0)
         {
-            return false;
+            std::memcpy(&fileSize, sizeData.data(), sizeof(fileSize));
+            std::cout << "Received file size: " << fileSize << " bytes. Result: " << result << std::endl;
+            return true;
         }
-        std::memcpy(&fileSize, sizeData.data(), sizeof(fileSize));
-        std::cout << "filesize : " << fileSize << std::endl;
-        return true;
-    }
-
-    bool sendChunk(const char *data, std::streamsize size)
-    {
-        int retries = 0;
-        std::size_t sent = 0;
-
-        while (sent < static_cast<std::size_t>(size) && retries < MAX_RETRIES)
-        {
-            std::size_t remaining = size - sent;
-            std::vector<char> chunk(data + sent, data + sent + remaining);
-            if (socket_.send(chunk))
-            {
-                sent += chunk.size();
-            }
-            else
-            {
-                retries++;
-                std::cerr << "Retrying to send chunk... (" << retries << "/" << MAX_RETRIES << ")" << std::endl;
-            }
-        }
-        return sent == static_cast<std::size_t>(size);
-    }
-
-    bool receiveChunk(char *buffer, std::streamsize size)
-    {
-        int retries = 0;
-        std::size_t received = 0;
-
-        while (received < static_cast<std::size_t>(size) && retries < MAX_RETRIES)
-        {
-            std::vector<char> data;
-            if (!socket_.recv(data) || data.empty())
-            {
-                retries++;
-                std::cerr << "Retrying to receive chunk... (" << retries << "/" << MAX_RETRIES << ")" << std::endl;
-                continue;
-            }
-
-            std::size_t chunkSize = std::min<std::size_t>(data.size(), (size - received));
-            std::memcpy(buffer + received, data.data(), chunkSize);
-            received += chunkSize;
-
-            retries = 0;
-        }
-
-        return received == static_cast<std::size_t>(size);
+        return false;
     }
 };
 

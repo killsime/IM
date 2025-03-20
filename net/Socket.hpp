@@ -1,3 +1,4 @@
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
 #ifndef SOCKET_HPP
 #define SOCKET_HPP
 
@@ -32,9 +33,14 @@
 
 class Socket
 {
+
+private:
+    int fd;             // 文件描述符
+    size_t buffer_size; // 接收缓冲区大小
+
 public:
     // 默认构造函数
-    Socket() : fd(INVALID_SOCKET)
+    Socket() : fd(INVALID_SOCKET), buffer_size(BUFFER_SIZE)
     {
 #ifdef _WIN32
         WSADATA wsaData;
@@ -47,7 +53,7 @@ public:
     }
 
     // 服务端处理 Socket 的构造函数
-    Socket(int client_fd) : fd(client_fd) {}
+    Socket(int client_fd) : fd(client_fd), buffer_size(BUFFER_SIZE) {}
 
     // 析构函数
     ~Socket()
@@ -173,49 +179,52 @@ public:
         return Socket(client_fd);
     }
 
-    // 发送数据
-    bool send(const std::vector<char> &data)
+    // 发送数据，返回实际发送的字节数（0表示失败）
+    size_t send(const std::vector<char> &data)
     {
         if (fd == INVALID_SOCKET)
         {
             printf("Invalid socket.\n");
-            return false;
+            return 0;
         }
 
         int bytes_sent = ::send(fd, data.data(), static_cast<int>(data.size()), 0);
         if (bytes_sent == SOCKET_ERROR)
         {
             printf("Failed to send data.\n");
-            return false;
+            return 0;
         }
-        return true;
+        return static_cast<size_t>(bytes_sent);
     }
 
-    // 接收数据
-    bool recv(std::vector<char> &buffer)
+    // 接收数据，返回实际接收的字节数（0表示失败）
+    size_t recv(std::vector<char> &buffer)
     {
         if (fd == INVALID_SOCKET)
         {
             printf("Invalid socket.\n");
-            return false;
+            return 0;
         }
 
-        char temp_buffer[BUFFER_SIZE];
-        int bytes_received = ::recv(fd, temp_buffer, sizeof(temp_buffer), 0);
+        // 使用 vector 作为动态分配的缓冲区
+        std::vector<char> temp_buffer(buffer_size);
+
+        int bytes_received = ::recv(fd, temp_buffer.data(), static_cast<int>(temp_buffer.size()), 0);
         if (bytes_received == SOCKET_ERROR)
         {
             printf("Failed to receive data.\n");
-            return false;
+            return 0;
         }
         else if (bytes_received == 0)
         {
             // 对端关闭连接
             printf("Connection closed by peer.\n");
-            return false;
+            return 0;
         }
 
-        buffer.assign(temp_buffer, temp_buffer + bytes_received);
-        return true;
+        // 将接收到的数据复制到输出缓冲区
+        buffer.assign(temp_buffer.begin(), temp_buffer.begin() + bytes_received);
+        return static_cast<size_t>(bytes_received);
     }
 
     // 在 Socket 类中添加以下方法
@@ -235,11 +244,27 @@ public:
         return inet_ntoa(addr.sin_addr);
     }
 
+    // 设置接收缓冲区大小
+    void setBufferSize(size_t size)
+    {
+        if (size > 0)
+        {
+            buffer_size = size;
+            printf("Buffer size set to %zu.\n", buffer_size);
+        }
+        else
+        {
+            printf("Invalid buffer size. Must be greater than 0.\n");
+        }
+    }
+
+    // 获取接收缓冲区大小
+    size_t getBufferSize() const
+    {
+        return buffer_size;
+    }
     // 获取文件描述符
     int getFd() const { return fd; }
-
-private:
-    int fd; // 文件描述符
 };
 
 #endif // SOCKET_HPP
