@@ -1,6 +1,7 @@
 #ifndef SOCKET_HPP
 #define SOCKET_HPP
 
+#include <vector>
 #include <string>
 #include <stdexcept>
 #include <iostream>
@@ -173,7 +174,7 @@ public:
     }
 
     // 发送数据
-    bool send(const std::string &data)
+    bool send(const std::vector<char> &data)
     {
         if (fd == INVALID_SOCKET)
         {
@@ -181,7 +182,7 @@ public:
             return false;
         }
 
-        int bytes_sent = ::send(fd, data.c_str(), static_cast<int>(data.size()), 0);
+        int bytes_sent = ::send(fd, data.data(), static_cast<int>(data.size()), 0);
         if (bytes_sent == SOCKET_ERROR)
         {
             printf("Failed to send data.\n");
@@ -191,7 +192,7 @@ public:
     }
 
     // 接收数据
-    bool recv(std::string &buffer)
+    bool recv(std::vector<char> &buffer)
     {
         if (fd == INVALID_SOCKET)
         {
@@ -213,25 +214,27 @@ public:
             return false;
         }
 
-        buffer.assign(temp_buffer, bytes_received);
+        buffer.assign(temp_buffer, temp_buffer + bytes_received);
         return true;
     }
 
-    // 设置发送和接收缓冲区大小
-    bool setBufferSize(int size)
+    // 在 Socket 类中添加以下方法
+    std::string getRemoteIp() const
     {
-        if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (const char *)&size, sizeof(size)) == SOCKET_ERROR)
+        if (fd == INVALID_SOCKET)
         {
-            printf("Failed to set send buffer size.\n");
-            return false;
+            return "unknown";
         }
-        if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (const char *)&size, sizeof(size)) == SOCKET_ERROR)
+
+        struct sockaddr_in addr;
+        socklen_t addr_len = sizeof(addr);
+        if (getpeername(fd, (struct sockaddr *)&addr, &addr_len) == -1)
         {
-            printf("Failed to set receive buffer size.\n");
-            return false;
+            return "unknown";
         }
-        return true;
+        return inet_ntoa(addr.sin_addr);
     }
+
     // 获取文件描述符
     int getFd() const { return fd; }
 

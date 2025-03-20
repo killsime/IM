@@ -50,10 +50,10 @@ private:
         // 广播给所有在线用户（排除发送者）
         for (const auto &[uid, netInfo] : connections)
         {
-            if (netInfo.client_fd != text.sender && netInfo.online)
+            if (netInfo.socket.getFd() != text.sender && netInfo.online)
             {
                 TextData broadcast = text;
-                broadcast.receiver = std::stoi(uid);
+                broadcast.receiver = uid; // 直接使用 uint32_t 类型的 uid
                 mq.pushToSendQueue(Message(broadcast));
             }
         }
@@ -63,49 +63,39 @@ private:
     {
         auto &file = *static_cast<const FileData *>(msg.data.get());
         auto &connMgr = ConnectionMgr::getInstance().getIOConnections();
-        int fd = connMgr.getFd(std::to_string(file.sender));
-
-        if (fd == -1)
-        {
-            std::cerr << "File transfer failed: client fd not found" << std::endl;
-            return;
-        }
+        Socket clientSocket = connMgr.getSocket(file.sender); // 直接使用 uint32_t 类型的 uid
 
         if (file.action == FileAction::UPLOAD)
         {
-            ThreadPool::getInstance().enqueue([this, fd, file]()
-                                              { handleFileUpload(fd, file); });
+            ThreadPool::getInstance().enqueue([this, &clientSocket, file]()
+                                              { handleFileUpload(clientSocket, file); });
         }
         else if (file.action == FileAction::DOWNLOAD)
         {
-            ThreadPool::getInstance().enqueue([this, fd, file]()
-                                              { handleFileDownload(fd, file); });
+            ThreadPool::getInstance().enqueue([this, &clientSocket, file]()
+                                              { handleFileDownload(clientSocket, file); });
         }
     }
 
-    void handleFileUpload(int fd, const FileData &file)
+    void handleFileUpload(Socket &clientSocket, const FileData &file)
     {
         std::string fileName = file.filename.data();
-
-        Socket clientSocket(fd);
         FileTransfer transfer(clientSocket);
 
-        if (!transfer.receiveFile(fileName, file.filesize))
+        if (!transfer.receiveFile(fileName))
         {
             std::cerr << "Failed to receive file: " << fileName << std::endl;
             return;
         }
 
         std::cout << "File received and saved to: " << fileName << std::endl;
-
+        ConnectionMgr::getInstance().getIOConnections().removeConnection(file.sender);
         sendFileNotification(file);
     }
 
-    void handleFileDownload(int fd, const FileData &file)
+    void handleFileDownload(Socket &clientSocket, const FileData &file)
     {
         std::string fileName = file.filename.data();
-
-        Socket clientSocket(fd);
         FileTransfer transfer(clientSocket);
 
         if (!transfer.sendFile(fileName))
@@ -114,6 +104,7 @@ private:
             return;
         }
 
+        ConnectionMgr::getInstance().getIOConnections().removeConnection(file.receiver);
         std::cout << "File sent successfully: " << fileName << std::endl;
     }
 

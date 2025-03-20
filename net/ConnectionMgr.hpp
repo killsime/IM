@@ -1,72 +1,65 @@
 #ifndef CONNECTIONMGR_HPP
 #define CONNECTIONMGR_HPP
 
+#include "Socket.hpp" // 引用 Socket 类
 #include <string>
 #include <unordered_map>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <unistd.h>
 #include <iostream>
 #include <mutex>
 #include <functional>
 #include <chrono>
 #include <memory>
 #include <thread>
+#include <array>
 
 // 网络信息结构体
 struct NetInfo
 {
-    int client_fd;  // 客户端文件描述符
+    Socket socket;  // 客户端 Socket
     bool online;    // 是否在线
     std::string ip; // 客户端 IP 地址
 
-    NetInfo(int fd, const std::string &client_ip)
-        : client_fd(fd), online(true), ip(client_ip) {}
+    NetInfo(const Socket &sock, const std::string &client_ip)
+        : socket(sock), online(true), ip(client_ip) {}
 };
 
 // 连接管理基类
 class Connections
 {
 protected:
-    std::unordered_map<std::string, NetInfo> uidToNetInfo; // UID -> NetInfo
-    std::mutex mtx;                                        // 保证线程安全
+    std::unordered_map<uint32_t, NetInfo> uidToNetInfo; // UID -> NetInfo
+    std::mutex mtx;                                     // 保证线程安全
 
-    // 根据 fd 获取 IP 地址
-    std::string getIpByFd(int fd)
+    // 根据 Socket 获取 IP 地址
+    std::string getIpBySocket(const Socket &socket)
     {
-        struct sockaddr_in addr;
-        socklen_t addr_len = sizeof(addr);
-        if (getpeername(fd, (struct sockaddr *)&addr, &addr_len) == -1)
-        {
-            return "unknown";
-        }
-        return inet_ntoa(addr.sin_addr);
+        return socket.getRemoteIp(); // 假设 Socket 类提供了获取远程 IP 的方法
     }
 
 public:
     // 添加连接
-    void add(const std::string &uid, int fd)
+    void add(uint32_t uid, const Socket &socket)
     {
         std::lock_guard<std::mutex> lock(mtx);
-        std::string ip = getIpByFd(fd);
-        uidToNetInfo.emplace(uid, NetInfo(fd, ip));
-        std::cout << "New connection: UID=" << uid << ", IP=" << ip << ", FD=" << fd << std::endl;
+        std::string ip = getIpBySocket(socket);
+        uidToNetInfo.emplace(uid, NetInfo(socket, ip));
+        std::cout << "New connection: UID=" << uid << ", IP=" << ip << ", FD=" << socket.getFd() << std::endl;
     }
 
-    // 获取 fd
-    int getFd(const std::string &uid)
+    // 获取 Socket
+    Socket getSocket(uint32_t uid)
     {
         std::lock_guard<std::mutex> lock(mtx);
         auto it = uidToNetInfo.find(uid);
         if (it != uidToNetInfo.end())
         {
-            return it->second.client_fd;
+            return it->second.socket;
         }
-        return -1; // 未找到
+        return Socket(); // 返回一个无效的 Socket
     }
 
     // 设置在线状态
-    void setOnline(const std::string &uid, bool isOnline)
+    void setOnline(uint32_t uid, bool isOnline)
     {
         std::lock_guard<std::mutex> lock(mtx);
         auto it = uidToNetInfo.find(uid);
@@ -76,11 +69,27 @@ public:
         }
     }
 
-    std::unordered_map<std::string, NetInfo> getConnections()
+    // 移除某个在线状态
+    void removeConnection(uint32_t uid)
     {
+        std::lock_guard<std::mutex> lock(mtx);
+        auto it = uidToNetInfo.find(uid);
+        if (it != uidToNetInfo.end())
+        {
+            it->second.socket.close(); // 关闭 Socket
+            std::cout << "Removed connection: UID=" << uid << ", IP=" << it->second.ip << std::endl;
+            uidToNetInfo.erase(it); // 从映射中移除
+        }
+    }
+
+    // 获取所有连接
+    std::unordered_map<uint32_t, NetInfo> getConnections()
+    {
+        std::lock_guard<std::mutex> lock(mtx);
         return uidToNetInfo;
     }
-    // 扫描并关闭所有不在线的 fd
+
+    // 扫描并关闭所有不在线的 Socket
     void scanAndCloseInactive()
     {
         std::lock_guard<std::mutex> lock(mtx);
@@ -88,7 +97,7 @@ public:
         {
             if (!it->second.online)
             {
-                close(it->second.client_fd); // 关闭 fd
+                it->second.socket.close(); // 关闭 Socket
                 std::cout << "Closed inactive connection: UID=" << it->first << ", IP=" << it->second.ip << std::endl;
                 it = uidToNetInfo.erase(it); // 从映射中移除
             }

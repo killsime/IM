@@ -72,7 +72,7 @@ private:
 
     void handleClientData(int fd)
     {
-        std::string data;
+        std::vector<char> data;
         if (!Socket(fd).recv(data))
         {
             cleanupClient(fd);
@@ -81,7 +81,7 @@ private:
 
         try
         {
-            Pack pack(data.data(), data.size());
+            Pack pack(data);
             Message msg = parsePack(pack);
             preprocessMessage(fd, msg);
             MessageQueue::getInstance().pushToRecvQueue(std::move(msg));
@@ -117,13 +117,13 @@ private:
             switch (user.action)
             {
             case UserAction::LOGIN:
-                conn.add(std::to_string(user.uid), fd);
+                conn.add(user.uid, Socket(fd));
                 break;
             case UserAction::LOGOUT:
-                conn.setOnline(std::to_string(user.uid), false);
+                conn.setOnline(user.uid, false);
                 break;
             case UserAction::HEARTBEAT:
-                conn.setOnline(std::to_string(user.uid), true);
+                conn.setOnline(user.uid, true);
                 break;
             default:
                 break;
@@ -133,7 +133,7 @@ private:
         {
             auto &file = *static_cast<FileData *>(msg.data.get());
             auto &conn = ConnectionMgr::getInstance().getIOConnections();
-            conn.add(std::to_string(file.sender), fd);
+            conn.add(file.sender, Socket(fd));
             epoll_.del(Socket(fd));
         }
     }
@@ -141,7 +141,7 @@ private:
     void cleanupClient(int fd)
     {
         epoll_.del(Socket(fd));
-        ConnectionMgr::getInstance().getTextConnections().setOnline(std::to_string(fd), false);
+        ConnectionMgr::getInstance().getTextConnections().setOnline(fd, false);
         std::cout << "Client disconnected: " << fd << std::endl;
     }
 
@@ -162,15 +162,15 @@ private:
                 if (msg.type == Message::Type::TEXT)
                 {
                     auto &text = *static_cast<TextData *>(msg.data.get());
-                    int fd = ConnectionMgr::getInstance()
-                                 .getTextConnections()
-                                 .getFd(std::to_string(text.receiver));
+                    Socket clientSocket = ConnectionMgr::getInstance()
+                                              .getTextConnections()
+                                              .getSocket(text.receiver);
 
-                    if (fd != -1)
+                    if (clientSocket.getFd())
                     {
-                        // 构造Pack并发送
-                        Pack pack(2, reinterpret_cast<const char *>(&text), sizeof(TextData));
-                        Socket(fd).send(pack.toString());
+                        std::vector<char> data(reinterpret_cast<char *>(&text), reinterpret_cast<char *>(&text) + sizeof(TextData));
+                        Pack pack(2, data);
+                        clientSocket.send(pack.toByteStream());
                     }
                 }
             }
