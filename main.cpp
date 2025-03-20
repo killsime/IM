@@ -6,11 +6,7 @@ int main()
 {
     // 初始化EventLoop
     EventLoop eventLoop;
-    if (!eventLoop.init())
-    {
-        std::cerr << "Failed to initialize EventLoop" << std::endl;
-        return 1;
-    }
+    eventLoop.init();
 
     // 启动消息处理器
     MsgHandler msgHandler;

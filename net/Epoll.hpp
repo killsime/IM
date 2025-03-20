@@ -56,7 +56,7 @@ public:
             printf("Failed to add fd to epoll: %s\n", strerror(errno));
             return false;
         }
-        printf("Added fd: %d to epoll.\n", fd);
+        // printf("Added fd: %d to epoll.\n", fd);
         return true;
     }
 
@@ -75,7 +75,7 @@ public:
             printf("Failed to delete fd from epoll: %s\n", strerror(errno));
             return;
         }
-        printf("Deleted fd: %d from epoll.\n", fd);
+        // printf("Deleted fd: %d from epoll.\n", fd);
     }
 
     // 等待事件发生，返回触发事件的 Socket 列表

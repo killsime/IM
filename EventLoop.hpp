@@ -67,12 +67,7 @@ private:
         if (client.getFd() == INVALID_SOCKET)
             return;
 
-        if (&listener == &msgSocket_)
-        {
-            epoll_.add(client, EPOLLIN | EPOLLET);
-            client.setNonBlocking();
-        }
-        std::cout << "New connection: " << client.getFd() << std::endl;
+        epoll_.add(client, EPOLLIN | EPOLLET);
     }
 
     void handleClientData(int fd)
@@ -133,6 +128,13 @@ private:
             default:
                 break;
             }
+        }
+        else if (msg.type == Message::Type::FILE)
+        {
+            auto &file = *static_cast<FileData *>(msg.data.get());
+            auto &conn = ConnectionMgr::getInstance().getIOConnections();
+            conn.add(std::to_string(file.sender), fd);
+            epoll_.del(Socket(fd));
         }
     }
 

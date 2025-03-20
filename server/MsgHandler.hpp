@@ -4,6 +4,8 @@
 #include "MQ.hpp"
 #include "Message.hpp"
 #include "../net/ConnectionMgr.hpp"
+#include "../net/FileTransfer.hpp"
+#include "../utils/ThreadPool.hpp"
 #include <iostream>
 #include <sstream>
 
@@ -60,8 +62,63 @@ private:
     void handleFile(const Message &msg)
     {
         auto &file = *static_cast<const FileData *>(msg.data.get());
+        auto &connMgr = ConnectionMgr::getInstance().getIOConnections();
+        int fd = connMgr.getFd(std::to_string(file.sender));
 
-        // 构造文件通知消息
+        if (fd == -1)
+        {
+            std::cerr << "File transfer failed: client fd not found" << std::endl;
+            return;
+        }
+
+        if (file.action == FileAction::UPLOAD)
+        {
+            ThreadPool::getInstance().enqueue([this, fd, file]()
+                                              { handleFileUpload(fd, file); });
+        }
+        else if (file.action == FileAction::DOWNLOAD)
+        {
+            ThreadPool::getInstance().enqueue([this, fd, file]()
+                                              { handleFileDownload(fd, file); });
+        }
+    }
+
+    void handleFileUpload(int fd, const FileData &file)
+    {
+        std::string fileName = file.filename.data();
+
+        Socket clientSocket(fd);
+        FileTransfer transfer(clientSocket);
+
+        if (!transfer.receiveFile(fileName, file.filesize))
+        {
+            std::cerr << "Failed to receive file: " << fileName << std::endl;
+            return;
+        }
+
+        std::cout << "File received and saved to: " << fileName << std::endl;
+
+        sendFileNotification(file);
+    }
+
+    void handleFileDownload(int fd, const FileData &file)
+    {
+        std::string fileName = file.filename.data();
+
+        Socket clientSocket(fd);
+        FileTransfer transfer(clientSocket);
+
+        if (!transfer.sendFile(fileName))
+        {
+            std::cerr << "Failed to send file: " << fileName << std::endl;
+            return;
+        }
+
+        std::cout << "File sent successfully: " << fileName << std::endl;
+    }
+
+    void sendFileNotification(const FileData &file)
+    {
         std::stringstream ss;
         ss << "[文件] " << file.filename.data()
            << " (" << file.filesize << "字节)";
@@ -70,7 +127,7 @@ private:
             file.sender,
             file.receiver,
             {},
-            file.receiver == 0 ? TextType::GROUP : TextType::PRIVATE};
+            TextType::GROUP};
         ss.read(notification.content.data(), notification.content.size() - 1);
 
         mq.pushToSendQueue(Message(notification));

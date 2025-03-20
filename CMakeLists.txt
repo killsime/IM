@@ -8,6 +8,7 @@ project(IMServer VERSION 1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_BUILD_TYPE Debug)
 
 # 添加库
 add_library(MyServerLib
@@ -17,10 +18,9 @@ add_library(MyServerLib
     net/Epoll.hpp
     net/Socket.hpp
     net/FileTransfer.hpp
-    net/TextTransfer.hpp
     net/Pack.hpp
     server/Message.hpp
-    server/Msghander.hpp
+    server/MsgHandler.hpp
     server/MQ.hpp
     sql/Database.hpp
     sql/SqlCrud.hpp

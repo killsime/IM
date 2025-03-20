@@ -1,4 +1,3 @@
-// net/Pack.hpp
 #ifndef PACK_HPP
 #define PACK_HPP
 
@@ -9,41 +8,48 @@
 #include <stdexcept>
 #include <cstdint> // 包含固定宽度整数类型
 
-class Pack {
+class Pack
+{
 private:
-    uint16_t sHead; // 包头 (0xFEFF)
-    uint32_t nLength; // 数据长度 (包括类型和校验和)
-    uint16_t sType; // 数据类型
-    uint16_t sSum; // 校验和
+    uint16_t sHead;      // 包头 (0xFEFF)
+    uint32_t nLength;    // 数据长度 (包括类型和校验和)
+    uint16_t sType;      // 数据类型
+    uint16_t sSum;       // 校验和
     std::string strData; // 数据内容
 
 public:
     // 封包构造函数
-    Pack(uint16_t sType, const char* pData, size_t nSize) {
-        this->sHead = 0xFEFF; // 固定包头
+    Pack(uint16_t sType, const char *pData, size_t nSize)
+    {
+        this->sHead = 0xFEFF;                             // 固定包头
         this->nLength = static_cast<uint32_t>(nSize + 4); // 数据长度 = 数据体长度 + 类型(2字节) + 校验和(2字节)
         this->sType = sType;
 
         // 拷贝数据体
-        if (nSize > 0) {
+        if (nSize > 0)
+        {
             this->strData.assign(pData, nSize);
         }
 
         // 计算校验和
         this->sSum = 0;
-        for (size_t i = 0; i < nSize; i++) {
+        for (size_t i = 0; i < nSize; i++)
+        {
             this->sSum += static_cast<uint8_t>(pData[i]);
         }
     }
 
     // 解包构造函数
-    Pack(const char* pData, size_t nSize) {
-        if (nSize < 10) { // 最小包大小: 包头(2) + 长度(4) + 类型(2) + 校验和(2)
+    Pack(const char *pData, size_t nSize)
+    {
+        if (nSize < 10)
+        { // 最小包大小: 包头(2) + 长度(4) + 类型(2) + 校验和(2)
             throw std::runtime_error("Invalid packet size");
         }
 
         // 校验包头
-        if (static_cast<uint8_t>(pData[0]) != 0xFE || static_cast<uint8_t>(pData[1]) != 0xFF) {
+        if (static_cast<uint8_t>(pData[0]) != 0xFE || static_cast<uint8_t>(pData[1]) != 0xFF)
+        {
             throw std::runtime_error("Invalid packet header");
         }
 
@@ -52,7 +58,8 @@ public:
                         (static_cast<uint8_t>(pData[3]) << 16) |
                         (static_cast<uint8_t>(pData[4]) << 8) |
                         static_cast<uint8_t>(pData[5]);
-        if (nLength + 6 > nSize) { // 包不完整
+        if (nLength + 6 > nSize)
+        { // 包不完整
             throw std::runtime_error("Incomplete packet");
         }
 
@@ -61,35 +68,41 @@ public:
 
         // 解析数据
         size_t dataSize = nLength - 4; // 数据长度 = 总长度 - 类型(2) - 校验和(2)
-        if (dataSize > 0) {
+        if (dataSize > 0)
+        {
             this->strData.assign(pData + 8, dataSize);
         }
 
         // 校验和验证
         this->sSum = 0;
-        for (size_t i = 0; i < dataSize; i++) {
+        for (size_t i = 0; i < dataSize; i++)
+        {
             this->sSum += static_cast<uint8_t>(this->strData[i]);
         }
 
         uint16_t checksum = (static_cast<uint8_t>(pData[8 + dataSize]) << 8) |
                             static_cast<uint8_t>(pData[9 + dataSize]);
-        if (this->sSum != checksum) {
+        if (this->sSum != checksum)
+        {
             throw std::runtime_error("Checksum error");
         }
     }
 
     // 获取类型
-    uint16_t getType() const {
+    uint16_t getType() const
+    {
         return this->sType;
     }
 
     // 获取数据
-    const std::string& getData() const {
+    const std::string &getData() const
+    {
         return this->strData;
     }
 
     // 将封包对象转换为字符串
-    std::string toString() const {
+    std::string toString() const
+    {
         std::string byteStream;
 
         // 添加包头
@@ -117,9 +130,11 @@ public:
     }
 
     // 输出字节流
-    void dump() const {
+    void dump() const
+    {
         std::string byteStream = toString();
-        for (char c : byteStream) {
+        for (char c : byteStream)
+        {
             std::cout << std::hex << std::setw(2) << std::setfill('0') << (static_cast<uint8_t>(c) & 0xFF) << " ";
         }
         std::cout << std::endl;

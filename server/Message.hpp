@@ -15,19 +15,6 @@ enum class UserAction : uint8_t
     LOGOUT = 2,    // 登出
     REGISTER = 3   // 注册
 };
-
-enum class TextType : uint8_t
-{
-    PRIVATE = 0, // 私发
-    GROUP = 1    // 群发
-};
-
-enum class FileAction : uint8_t
-{
-    UPLOAD = 0,  // 上传
-    DOWNLOAD = 1 // 下载
-};
-
 struct UserData
 {
     uint32_t uid;
@@ -36,6 +23,11 @@ struct UserData
     UserAction action;
 };
 
+enum class TextType : uint8_t
+{
+    PRIVATE = 0, // 私发
+    GROUP = 1    // 群发
+};
 struct TextData
 {
     uint32_t sender;               // 发送者UID
@@ -44,6 +36,11 @@ struct TextData
     TextType type;                 // 消息类型：私发或群发
 };
 
+enum class FileAction : uint8_t
+{
+    UPLOAD = 0,  // 上传
+    DOWNLOAD = 1 // 下载
+};
 struct FileData
 {
     uint32_t sender;                // 发送者UID

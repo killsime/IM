@@ -1,32 +1,47 @@
 #ifndef FILETRANSFER_HPP
 #define FILETRANSFER_HPP
 
-#include "Socket.hpp" // 引用 Socket 类
+#include "Socket.hpp"    // 引用 Socket 类
+#include "FileUtils.hpp" // 引用跨平台文件操作库
 #include <fstream>
 #include <string>
 #include <vector>
 #include <thread>
-#include <chrono>
 #include <iostream>
 #include <iomanip>
 #include <cstring>
 
 // 定义常量
-#define CHUNK_SIZE 1024 * 1024       // 每个分片的大小（1MB）
-#define MAX_RETRIES 3                // 最大重试次数
-#define END_MARKER "FILE_END_MARKER" // 文件传输结束标志
+#define CHUNK_SIZE 1024 * 1024     // 每个分片的大小（1MB）
+#define MAX_RETRIES 3              // 最大重试次数
+#define DEFAULT_REPO_PATH "./repo" // 默认文件存储路径
 
 class FileTransfer
 {
 public:
-    // 构造函数
     FileTransfer(Socket &socket) : socket_(socket), totalBytes_(0), transferredBytes_(0)
     {
-        socket_.setBufferSize(CHUNK_SIZE);
+        // socket_.setBufferSize(CHUNK_SIZE);
+        setRepoPath(DEFAULT_REPO_PATH);
     }
 
-    bool sendFile(const std::string &filePath, uint64_t offset = 0)
+    void setRepoPath(const std::string &path)
     {
+        repoPath_ = path;
+        if (!FileUtils::fileExists(repoPath_))
+        {
+            FileUtils::createDirectory(repoPath_);
+        }
+    }
+
+    std::string getRepoPath() const
+    {
+        return repoPath_;
+    }
+
+    bool sendFile(const std::string &fileName)
+    {
+        std::string filePath = FileUtils::joinPath({repoPath_, fileName});
         std::ifstream file(filePath, std::ios::binary | std::ios::ate);
         if (!file.is_open())
         {
@@ -34,175 +49,126 @@ public:
             return false;
         }
 
-        // 获取文件大小
         totalBytes_ = file.tellg();
-        file.seekg(offset, std::ios::beg);
+        file.seekg(0, std::ios::beg);
 
-        // 读取文件并分片发送
         std::vector<char> buffer(CHUNK_SIZE);
-        while (!file.eof())
+        transferredBytes_ = 0;
+
+        while (transferredBytes_ < totalBytes_)
         {
             file.read(buffer.data(), CHUNK_SIZE);
             std::streamsize bytesRead = file.gcount();
 
-            // 发送分片
             if (!sendChunk(buffer.data(), bytesRead))
             {
                 std::cerr << "Failed to send file chunk." << std::endl;
                 file.close();
                 return false;
             }
-
-            // 更新已传输字节数
             transferredBytes_ += bytesRead;
         }
 
-        // 发送结束标志
-        if (!sendChunk(END_MARKER, strlen(END_MARKER)))
-        {
-            std::cerr << "Failed to send end marker." << std::endl;
-            file.close();
-            return false;
-        }
-
         file.close();
+        socket_.close();
         std::cout << "File sent successfully." << std::endl;
         return true;
     }
 
-    bool receiveFile(const std::string &filePath, uint64_t offset = 0)
+    bool receiveFile(const std::string &fileName, uint64_t fileSize)
     {
-        std::ofstream file(filePath, std::ios::binary | std::ios::trunc); // 使用 trunc 模式
+        std::string filePath = FileUtils::joinPath({repoPath_, fileName});
+        std::ofstream file(filePath, std::ios::binary | std::ios::trunc);
         if (!file.is_open())
         {
             std::cerr << "Failed to open file: " << filePath << std::endl;
             return false;
         }
 
-        // 获取文件大小（如果已知）
-        // totalBytes_ = getFileSize(filePath) + offset;
+        totalBytes_ = fileSize;
+        transferredBytes_ = 0;
 
-        // 接收分片并写入文件
         std::vector<char> buffer(CHUNK_SIZE);
-        while (true)
+
+        while (transferredBytes_ < totalBytes_)
         {
-            std::streamsize bytesReceived = receiveChunk(buffer.data(), CHUNK_SIZE);
-            if (bytesReceived == 0)
+            uint64_t bytesToRead = std::min<uint64_t>(CHUNK_SIZE, totalBytes_ - transferredBytes_);
+
+            if (!receiveChunk(buffer.data(), bytesToRead))
             {
-                // 传输完成
-                break;
-            }
-            else if (bytesReceived == -1)
-            {
-                std::cerr << "Failed to receive file chunk." << std::endl;
+                std::cerr << "Failed to receive file chunk.percent_ :" << transferredBytes_ << " / " << totalBytes_ << std::endl;
                 file.close();
                 return false;
             }
-
-            // 检查是否为结束标志
-            if (std::string(buffer.data(), bytesReceived) == END_MARKER)
-            {
-                std::cout << "Received end marker." << std::endl;
-                break;
-            }
-
-            file.write(buffer.data(), bytesReceived);
-
-            // 更新已传输字节数
-            transferredBytes_ += bytesReceived;
+            file.write(buffer.data(), bytesToRead);
+            transferredBytes_ += bytesToRead;
         }
 
         file.close();
+        socket_.close();
         std::cout << "File received successfully." << std::endl;
         return true;
     }
 
-    // 获取已传输字节数
     uint64_t getTransferredBytes() const
     {
         return transferredBytes_;
     }
 
-    // 获取文件总大小
     uint64_t getTotalBytes() const
     {
         return totalBytes_;
     }
 
 private:
-    Socket &socket_;            // 引用 Socket 对象
-    uint64_t totalBytes_;       // 文件总大小
-    uint64_t transferredBytes_; // 已传输字节数
+    Socket &socket_;
+    uint64_t totalBytes_;
+    uint64_t transferredBytes_;
+    std::string repoPath_;
 
-    // 获取文件大小
-    uint64_t getFileSize(const std::string &filePath) const
-    {
-        std::ifstream file(filePath, std::ios::binary | std::ios::ate);
-        if (!file.is_open())
-            return 0;
-        return file.tellg();
-    }
-
-    // 发送分片
     bool sendChunk(const char *data, std::streamsize size)
     {
         int retries = 0;
-        while (retries < MAX_RETRIES)
+        std::size_t sent = 0;
+
+        while (sent < static_cast<std::size_t>(size) && retries < MAX_RETRIES)
         {
-            if (socket_.send(std::string(data, size)))
+            std::string chunk(data + sent, size - sent);
+            if (socket_.send(chunk))
             {
-                return true;
+                sent += chunk.size();
             }
-            retries++;
-            std::cerr << "Retrying to send chunk... (" << retries << "/" << MAX_RETRIES << ")" << std::endl;
+            else
+            {
+                retries++;
+                std::cerr << "Retrying to send chunk... (" << retries << "/" << MAX_RETRIES << ")" << std::endl;
+            }
         }
-        return false;
+        return sent == static_cast<std::size_t>(size);
     }
 
-    // 接收分片
-    std::streamsize receiveChunk(char *buffer, std::streamsize size)
+    bool receiveChunk(char *buffer, std::streamsize size)
     {
-        std::string data;
-        if (socket_.recv(data))
-        { // 尝试接收数据
-            if (data == END_MARKER)
+        int retries = 0;
+        std::size_t received = 0;
+
+        while (received < static_cast<std::size_t>(size) && retries < MAX_RETRIES)
+        {
+            std::string data;
+            if (!socket_.recv(data) || data.empty()) // 连接断开
             {
-                return 0; // 接收到结束标志，表示传输完成
+                retries++;
+                std::cerr << "Retrying to receive chunk... (" << retries << "/" << MAX_RETRIES << ")" << std::endl;
+                continue;
             }
-            std::memcpy(buffer, data.data(), data.size());
-            return data.size(); // 返回接收到的数据大小
+
+            std::size_t chunkSize = std::min<std::size_t>(data.size(), (size - received));
+            std::memcpy(buffer + received, data.data(), chunkSize);
+            received += chunkSize;
         }
-        return -1; // 接收失败
+
+        return received == static_cast<std::size_t>(size);
     }
 };
-
-// 打印进度条的函数
-void printProgress(const FileTransfer &ft)
-{
-    auto startTime = std::chrono::steady_clock::now();
-    while (ft.getTransferredBytes() < ft.getTotalBytes())
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
-        double progress = static_cast<double>(ft.getTransferredBytes()) / ft.getTotalBytes();
-        int barWidth = 50;
-
-        std::cout << "[";
-        int pos = static_cast<int>(barWidth * progress);
-        for (int i = 0; i < barWidth; ++i)
-        {
-            if (i < pos)
-                std::cout << "#";
-            else if (i == pos)
-                std::cout << ">";
-            else
-                std::cout << "-";
-        }
-        std::cout << "] " << std::setw(3) << static_cast<int>(progress * 100.0) << " %\r";
-        std::cout.flush();
-    }
-    auto endTime = std::chrono::steady_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
-    std::cout << "\nTransfer completed in " << duration << " ms. Transferred " << ft.getTransferredBytes() << " bytes." << std::endl;
-}
 
 #endif // FILETRANSFER_HPP
