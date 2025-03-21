@@ -5,10 +5,12 @@ cmake_minimum_required(VERSION 3.10)
 project(IMServer VERSION 1.0 LANGUAGES CXX)
 
 # 设置 C++ 标准
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_BUILD_TYPE Debug)
+# 静态链接 libstdc++
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++")
 
 # 添加库
 add_library(MyServerLib
@@ -40,12 +42,12 @@ target_include_directories(MyServerLib PRIVATE
 find_package(Threads REQUIRED)
 target_link_libraries(MyServerLib PRIVATE Threads::Threads)
 
-# 手动设置 MySQL 的头文件和库文件路径
-include_directories(/usr/include/mysql)
-link_directories(/usr/lib/x86_64-linux-gnu)
+# # 手动设置 MySQL 的头文件和库文件路径
+# include_directories(/usr/include/mysql)
+# link_directories(/usr/lib/x86_64-linux-gnu)
 
-# 链接 MySQL 库
-target_link_libraries(MyServerLib PRIVATE mysqlclient)
+# # 链接 MySQL 库
+# target_link_libraries(MyServerLib PRIVATE mysqlclient)
 
 # 添加可执行文件
 add_executable(IMServer main.cpp)

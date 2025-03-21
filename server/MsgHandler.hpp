@@ -8,6 +8,8 @@
 #include "../utils/ThreadPool.hpp"
 #include <iostream>
 #include <sstream>
+#include <thread>
+#include <memory>
 
 class MsgHandler
 {
@@ -48,12 +50,12 @@ private:
         auto connections = connMgr.getConnections();
 
         // 广播给所有在线用户（排除发送者）
-        for (const auto &[uid, netInfo] : connections)
+        for (const auto &conn : connections)
         {
-            if (netInfo.socket.getFd() != text.sender && netInfo.online)
+            if (conn.first != text.sender && conn.second.online)
             {
                 TextData broadcast = text;
-                broadcast.receiver = uid; // 直接使用 uint32_t 类型的 uid
+                broadcast.receiver = conn.first; // 直接使用 uint32_t 类型的 uid
                 mq.pushToSendQueue(Message(broadcast));
             }
         }
@@ -122,7 +124,7 @@ private:
             file.receiver,
             {},
             TextType::GROUP};
-        ss.read(notification.content.data(), notification.content.size() - 1);
+        ss.read(&notification.content[0], notification.content.size() - 1);
 
         mq.pushToSendQueue(Message(notification));
     }

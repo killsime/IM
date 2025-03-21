@@ -15,7 +15,6 @@
 #define MAX_RETRIES 3              // 最大重试次数
 #define DEFAULT_REPO_PATH "./repo" // 默认文件存储路径
 
-// 自定义 MIN 函数，避免与 Windows 宏定义冲突
 template <typename T>
 T MIN(T a, T b)
 {
@@ -28,7 +27,7 @@ public:
     FileTransfer(Socket &socket) : socket_(socket), totalBytes_(0), transferredBytes_(0)
     {
         setRepoPath(DEFAULT_REPO_PATH);
-        socket_.setBufferSize(CHUNK_SIZE);
+        socket_.optimizeForLargeFileTransfer();
     }
 
     void setRepoPath(const std::string &path)
@@ -79,6 +78,7 @@ public:
         {
             file.read(buffer.data(), CHUNK_SIZE);
             std::streamsize bytesRead = file.gcount();
+            std::this_thread::sleep_for(std::chrono::milliseconds(80));
 
             size_t sent = 0;
             while (sent < static_cast<size_t>(bytesRead))
@@ -95,7 +95,7 @@ public:
                 transferredBytes_ += result;
 
                 // 调试信息：显示每次发送的大小和序号
-                std::cout << "Sent num #" << ++sequenceNumber << ": " << result << " bytes. Total sent: " << transferredBytes_ << " / " << totalBytes_ << std::endl;
+                // std::cout << "Sent num #" << ++sequenceNumber << ": " << result << " bytes. Total sent: " << transferredBytes_ << " / " << totalBytes_ << std::endl;
             }
         }
 
@@ -151,7 +151,7 @@ public:
                 transferredBytes_ += readSize;
 
                 // 调试信息：显示每次接收的大小和序号
-                std::cout << "Received num #" << ++sequenceNumber << ": " << readSize << " bytes. Total received: " << transferredBytes_ << " / " << totalBytes_ << std::endl;
+                // std::cout << "Received num #" << ++sequenceNumber << ": " << readSize << " bytes. Total received: " << transferredBytes_ << " / " << totalBytes_ << std::endl;
             }
         }
 

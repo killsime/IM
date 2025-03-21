@@ -244,24 +244,23 @@ public:
         return inet_ntoa(addr.sin_addr);
     }
 
-    // 设置接收缓冲区大小
-    void setBufferSize(size_t size)
+    void optimizeForLargeFileTransfer()
     {
-        if (size > 0)
+        if (fd == INVALID_SOCKET)
         {
-            buffer_size = size;
-            printf("Buffer size set to %zu.\n", buffer_size);
+            printf("Invalid socket.\n");
+            return;
         }
-        else
-        {
-            printf("Invalid buffer size. Must be greater than 0.\n");
-        }
-    }
 
-    // 获取接收缓冲区大小
-    size_t getBufferSize() const
-    {
-        return buffer_size;
+        // 设置内核接收缓冲区大小为 1MB
+        int kernel_buffer_size = 1024 * 1024; // 1MB
+        if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (const char *)&kernel_buffer_size, sizeof(kernel_buffer_size)) == SOCKET_ERROR)
+        {
+            printf("Failed to set kernel receive buffer size to 1MB. Error: %d\n", GET_LAST_ERROR);
+        }
+
+        // 设置应用层接收缓冲区大小为 64KB
+        buffer_size = 64 * 1024; // 64KB
     }
     // 获取文件描述符
     int getFd() const { return fd; }
