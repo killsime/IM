@@ -1,0 +1,52 @@
+# Visual Studio 生成文件和目录
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+*.sln.docstates
+*.cache
+*.pdb
+*.ilk
+*.log
+*.lib
+*.exp
+*.tlog
+*.idb
+*.ipch
+*.opensdf
+*.sdf
+*.db
+*.VC.db
+*.VC.VC.opendb
+
+# Visual Studio 项目文件
+*.vcxproj.user
+
+# NuGet 包
+packages/
+[Nn]u[Gg]et/
+*.nupkg
+
+# 编译输出
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+*.exe
+*.dll
+
+# 其他
+.vs/
+*.cache
+*.aps
+*.ncb
+*.opensdf
+*.sdf
+*.db
+*.opendb
+*.log
+*.tlog
+*.lastbuildstate
+IMClientConsole/send
+IMClientConsole/recv
+IMClientConsole/repo
