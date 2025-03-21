@@ -14,7 +14,10 @@
 class MsgHandler
 {
 public:
-    MsgHandler() : mq(MessageQueue::getInstance()) {}
+    MsgHandler()
+        : mq(MessageQueue::getInstance()),
+          ioConn(ConnectionMgr::getInstance().getIOConnections()),
+          txtConn(ConnectionMgr::getInstance().getTextConnections()) {}
 
     void start()
     {
@@ -46,8 +49,7 @@ private:
     void handleText(const Message &msg)
     {
         auto &text = *static_cast<const TextData *>(msg.data.get());
-        auto &connMgr = ConnectionMgr::getInstance().getTextConnections();
-        auto connections = connMgr.getConnections();
+        auto connections = txtConn.getConnections();
 
         // 广播给所有在线用户（排除发送者）
         for (const auto &conn : connections)
@@ -55,7 +57,7 @@ private:
             if (conn.first != text.sender && conn.second.online)
             {
                 TextData broadcast = text;
-                broadcast.receiver = conn.first; // 直接使用 uint32_t 类型的 uid
+                broadcast.receiver = conn.first;
                 mq.pushToSendQueue(Message(broadcast));
             }
         }
@@ -64,8 +66,7 @@ private:
     void handleFile(const Message &msg)
     {
         auto &file = *static_cast<const FileData *>(msg.data.get());
-        auto &connMgr = ConnectionMgr::getInstance().getIOConnections();
-        Socket clientSocket = connMgr.getSocket(file.sender); // 直接使用 uint32_t 类型的 uid
+        Socket clientSocket = ioConn.getSocket(file.sender);
 
         if (file.action == FileAction::UPLOAD)
         {
@@ -87,13 +88,11 @@ private:
         if (!transfer.receiveFile(fileName))
         {
             std::cerr << "Failed to receive file: " << fileName << std::endl;
-            ConnectionMgr::getInstance().getIOConnections().removeConnection(file.sender);
-
+            ioConn.removeConnection(file.sender);
             return;
         }
 
-        std::cout << "File received and saved to: " << fileName << std::endl;
-        ConnectionMgr::getInstance().getIOConnections().removeConnection(file.sender);
+        ioConn.removeConnection(file.sender);
         sendFileNotification(file);
     }
 
@@ -105,31 +104,50 @@ private:
         if (!transfer.sendFile(fileName))
         {
             std::cerr << "Failed to send file: " << fileName << std::endl;
-            ConnectionMgr::getInstance().getIOConnections().removeConnection(file.receiver);
+            ioConn.removeConnection(file.sender);
             return;
         }
 
-        ConnectionMgr::getInstance().getIOConnections().removeConnection(file.receiver);
-        std::cout << "File sent successfully: " << fileName << std::endl;
+        ioConn.removeConnection(file.sender);
     }
 
     void sendFileNotification(const FileData &file)
     {
-        std::stringstream ss;
-        ss << "[文件] " << file.filename.data()
-           << " (" << file.filesize << "字节)";
+        // 在循环外部构造文件信息消息内容
+        std::string content = "[filename] " + std::string(file.filename.data()) +
+                              " (" + std::to_string(file.filesize) + "byte)";
 
+        // 构造一个基础通知消息
         TextData notification{
-            file.sender,
-            file.receiver,
-            {},
-            TextType::GROUP};
-        ss.read(&notification.content[0], notification.content.size() - 1);
+            file.sender,      // 发送者UID
+            0,                // 接收者UID（稍后在循环中替换）
+            {},               // 消息内容
+            TextType::GROUP}; // 消息类型：群发
 
-        mq.pushToSendQueue(Message(notification));
+        // 将文件信息写入消息内容
+        std::copy(content.begin(), content.end(), notification.content.begin());
+        notification.content[content.size()] = '\0'; // 确保消息内容以 null 结尾
+
+        // 获取所有在线连接
+        auto connections = txtConn.getConnections();
+
+        // 广播给所有在线用户（排除发送者）
+        for (const auto &conn : connections)
+        {
+            if (conn.first != file.sender && conn.second.online)
+            {
+                // 只替换接收者
+                notification.receiver = conn.first;
+
+                // 将消息放入发送队列
+                mq.pushToSendQueue(Message(notification));
+            }
+        }
     }
 
     MessageQueue &mq;
+    IOConnection &ioConn;
+    TextConnection &txtConn;
 };
 
 #endif // MSGHANDLER_HPP

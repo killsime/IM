@@ -11,8 +11,7 @@
 #include <iomanip>
 #include <cstring>
 
-#define CHUNK_SIZE 64 * 1024       // 每个分片的大小（1MB）
-#define MAX_RETRIES 3              // 最大重试次数
+#define CHUNK_SIZE 1024 * 1024     // 每个分片的大小（1MB）
 #define DEFAULT_REPO_PATH "./repo" // 默认文件存储路径
 
 template <typename T>
@@ -78,7 +77,6 @@ public:
         {
             file.read(buffer.data(), CHUNK_SIZE);
             std::streamsize bytesRead = file.gcount();
-            std::this_thread::sleep_for(std::chrono::milliseconds(80));
 
             size_t sent = 0;
             while (sent < static_cast<size_t>(bytesRead))
@@ -94,10 +92,20 @@ public:
                 sent += result;
                 transferredBytes_ += result;
 
-                // 调试信息：显示每次发送的大小和序号
-                // std::cout << "Sent num #" << ++sequenceNumber << ": " << result << " bytes. Total sent: " << transferredBytes_ << " / " << totalBytes_ << std::endl;
+                // 每 50 次操作刷新一次进度
+                if (++sequenceNumber % 50 == 0)
+                {
+                    double progress = static_cast<double>(transferredBytes_) / totalBytes_ * 100;
+                    std::cout << "\rSending: " << transferredBytes_ << " / " << totalBytes_
+                              << " bytes (" << std::fixed << std::setprecision(2) << progress << "%)";
+                    std::cout.flush();
+                }
             }
         }
+
+        // 最后刷新一次进度，确保显示 100%
+        std::cout << "\rSending: " << transferredBytes_ << " / " << totalBytes_
+                  << " bytes (100.00%)" << std::endl;
 
         file.close();
         std::cout << "File sent successfully." << std::endl;
@@ -123,37 +131,39 @@ public:
         }
 
         // 接收文件内容
-        std::vector<char> buffer(CHUNK_SIZE);
         transferredBytes_ = 0;
         size_t sequenceNumber = 0; // 序号计数器
 
-        while (transferredBytes_ < totalBytes_)
+        size_t received = 0;
+        while (received < totalBytes_)
         {
-            size_t bytesToRead = MIN(static_cast<size_t>(CHUNK_SIZE),
-                                     static_cast<size_t>(totalBytes_ - transferredBytes_));
-
-            size_t received = 0;
-
-            while (received < bytesToRead)
+            std::vector<char> data;
+            size_t result = socket_.recv(data);
+            if (result == 0)
             {
-                std::vector<char> data;
-                size_t result = socket_.recv(data);
-                if (result == 0)
-                {
-                    std::cerr << "Failed to receive file chunk." << std::endl;
-                    file.close();
-                    return false;
-                }
+                std::cerr << "Failed to receive file chunk." << std::endl;
+                file.close();
+                return false;
+            }
 
-                size_t readSize = MIN(result, bytesToRead - received);
-                file.write(data.data(), readSize);
-                received += readSize;
-                transferredBytes_ += readSize;
+            size_t readSize = MIN(result, totalBytes_ - received);
+            file.write(data.data(), readSize);
+            received += readSize;
+            transferredBytes_ += readSize;
 
-                // 调试信息：显示每次接收的大小和序号
-                // std::cout << "Received num #" << ++sequenceNumber << ": " << readSize << " bytes. Total received: " << transferredBytes_ << " / " << totalBytes_ << std::endl;
+            // 每 50 次操作刷新一次进度
+            if (++sequenceNumber % 50 == 0)
+            {
+                double progress = static_cast<double>(transferredBytes_) / totalBytes_ * 100;
+                std::cout << "\rReceiving: " << transferredBytes_ << " / " << totalBytes_
+                          << " bytes (" << std::fixed << std::setprecision(2) << progress << "%)";
+                std::cout.flush();
             }
         }
+
+        // 最后刷新一次进度，确保显示 100%
+        std::cout << "\rReceiving: " << transferredBytes_ << " / " << totalBytes_
+                  << " bytes (100.00%)" << std::endl;
 
         file.close();
         std::cout << "File received successfully." << std::endl;
@@ -182,7 +192,7 @@ private:
         std::memcpy(sizeData.data(), &fileSize, sizeof(fileSize));
         size_t result = socket_.send(sizeData);
 
-        std::cout << "Sent file size: " << fileSize << " bytes. Result: " << result << std::endl;
+        std::cout << "Sent file size: " << fileSize << " bytes. " << std::endl;
 
         return result > 0;
     }
@@ -195,7 +205,7 @@ private:
         if (result > 0)
         {
             std::memcpy(&fileSize, sizeData.data(), sizeof(fileSize));
-            std::cout << "Received file size: " << fileSize << " bytes. Result: " << result << std::endl;
+            std::cout << "Received file size: " << fileSize << " bytes. " << std::endl;
             return true;
         }
         return false;

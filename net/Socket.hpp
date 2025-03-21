@@ -73,8 +73,8 @@ public:
 #else
             ::close(fd);
 #endif
+            // printf("Socket closed.fd : %d\n",fd);
             fd = INVALID_SOCKET;
-            printf("Socket closed.\n");
         }
     }
 
@@ -184,7 +184,7 @@ public:
     {
         if (fd == INVALID_SOCKET)
         {
-            printf("Invalid socket.\n");
+            // printf("Invalid socket.\n");
             return 0;
         }
 
@@ -202,7 +202,7 @@ public:
     {
         if (fd == INVALID_SOCKET)
         {
-            printf("Invalid socket.\n");
+            // printf("Invalid socket.\n");
             return 0;
         }
 
@@ -218,7 +218,7 @@ public:
         else if (bytes_received == 0)
         {
             // 对端关闭连接
-            printf("Connection closed by peer.\n");
+            // printf("Connection closed by peer.\n");
             return 0;
         }
 
@@ -248,7 +248,7 @@ public:
     {
         if (fd == INVALID_SOCKET)
         {
-            printf("Invalid socket.\n");
+            // printf("Invalid socket.\n");
             return;
         }
 

@@ -62,6 +62,7 @@ public:
     };
     Type type;
     std::unique_ptr<void, void (*)(void *)> data;
+    Message() : type(Type::USER), data(nullptr, [](void *ptr) {}) {}
 
     // 构造函数
     Message(UserData user) : type(Type::USER), data(new UserData(user), [](void *ptr)

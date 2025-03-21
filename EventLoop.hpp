@@ -44,6 +44,7 @@ public:
 
     void run()
     {
+        printf("server is running!\n");
         while (true)
         {
             auto sockets = epoll_.wait();
@@ -148,7 +149,7 @@ private:
     void startHeartbeatChecker()
     {
         ConnectionMgr::getInstance().startScanTimer([this]()
-                                                    { ConnectionMgr::getInstance().getTextConnections().scanAndCloseInactive(); }, 600);
+                                                    { ConnectionMgr::getInstance().getTextConnections().scanAndCloseInactive(); }, 10);
     }
 
     void sendMessages()
