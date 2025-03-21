@@ -15,7 +15,7 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++")
 # 添加库
 add_library(MyServerLib
     main.cpp
-    EventLoop.hpp
+    net/EventLoop.hpp
     net/ConnectionMgr.hpp
     net/Epoll.hpp
     net/Socket.hpp
