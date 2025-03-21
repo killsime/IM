@@ -1,12 +1,12 @@
 #ifndef EVENTLOOP_HPP
 #define EVENTLOOP_HPP
 
-#include "net/Epoll.hpp"
-#include "net/Socket.hpp"
-#include "server/MQ.hpp"
-#include "server/Message.hpp"
-#include "net/ConnectionMgr.hpp"
-#include "net/Pack.hpp"
+#include "Epoll.hpp"
+#include "Socket.hpp"
+#include "ConnectionMgr.hpp"
+#include "Pack.hpp"
+#include "../server/MQ.hpp"
+#include "../server/Message.hpp"
 #include <unordered_map>
 #include <iostream>
 #include <thread>
