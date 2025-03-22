@@ -24,7 +24,7 @@ add_library(MyServerLib
     server/Message.hpp
     server/MsgHandler.hpp
     server/MQ.hpp
-    sql/Database.hpp
+    sql/MySQLClient.hpp
     sql/SqlCrud.hpp
     utils/Config.hpp
     utils/ThreadPool.hpp
