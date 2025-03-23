@@ -21,6 +21,20 @@ int main()
                 std::cerr << "警告：查询结果中未找到 'name' 字段" << std::endl;
         }
 
+        // 查询用户 ID 为 1 的订单,联表查询
+        int user_id = 1;
+        std::string query = "SELECT o.id AS order_id, o.order_date, o.status, o.total_amount "
+                            "FROM `order` o "
+                            "JOIN user u ON o.user_id = u.id "
+                            "WHERE u.id = " +
+                            std::to_string(user_id);
+
+        result = db.query(query);
+
+        // 打印订单信息
+        std::cout << "\n用户 ID 为 " << user_id << " 的订单信息：" << std::endl;
+        MySQLClient::printResult(result);
+
         // 执行更新
         int affected_rows = db.execute("UPDATE user SET age = 30 WHERE id = 1");
         std::cout << "\n受影响的行数: " << affected_rows << std::endl;
