@@ -2,6 +2,7 @@
 #define FILETRANSFER_HPP
 
 #include "Socket.hpp"
+#include "SocketUtils.hpp"
 #include "FileUtils.hpp"
 #include <fstream>
 #include <string>
@@ -26,7 +27,7 @@ public:
     FileTransfer(Socket &socket) : socket_(socket), totalBytes_(0), transferredBytes_(0)
     {
         setRepoPath(DEFAULT_REPO_PATH);
-        socket_.optimizeForLargeFileTransfer();
+        SocketUtils::optimizeForLargeFileTransfer(socket_);
     }
 
     void setRepoPath(const std::string &path)

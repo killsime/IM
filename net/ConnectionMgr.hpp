@@ -2,6 +2,7 @@
 #define CONNECTIONMGR_HPP
 
 #include "Socket.hpp" // 引用 Socket 类
+#include "SocketUtils.hpp"
 #include <string>
 #include <unordered_map>
 #include <iostream>
@@ -33,7 +34,7 @@ protected:
     // 根据 Socket 获取 IP 地址
     std::string getIpBySocket(const Socket &socket)
     {
-        return socket.getRemoteIp(); // 假设 Socket 类提供了获取远程 IP 的方法
+        return SocketUtils::getRemoteIp(socket); // 假设 Socket 类提供了获取远程 IP 的方法
     }
 
 public:

@@ -226,42 +226,6 @@ public:
         buffer.assign(temp_buffer.begin(), temp_buffer.begin() + bytes_received);
         return static_cast<size_t>(bytes_received);
     }
-
-    // 在 Socket 类中添加以下方法
-    std::string getRemoteIp() const
-    {
-        if (fd == INVALID_SOCKET)
-        {
-            return "unknown";
-        }
-
-        struct sockaddr_in addr;
-        socklen_t addr_len = sizeof(addr);
-        if (getpeername(fd, (struct sockaddr *)&addr, &addr_len) == -1)
-        {
-            return "unknown";
-        }
-        return inet_ntoa(addr.sin_addr);
-    }
-
-    void optimizeForLargeFileTransfer()
-    {
-        if (fd == INVALID_SOCKET)
-        {
-            // printf("Invalid socket.\n");
-            return;
-        }
-
-        // 设置内核接收缓冲区大小为 1MB
-        int kernel_buffer_size = 1024 * 1024; // 1MB
-        if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (const char *)&kernel_buffer_size, sizeof(kernel_buffer_size)) == SOCKET_ERROR)
-        {
-            printf("Failed to set kernel receive buffer size to 1MB. Error: %d\n", GET_LAST_ERROR);
-        }
-
-        // 设置应用层接收缓冲区大小为 64KB
-        buffer_size = 64 * 1024; // 64KB
-    }
     // 获取文件描述符
     int getFd() const { return fd; }
 };

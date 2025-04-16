@@ -13,7 +13,7 @@ set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++")
 
 # 添加库
-add_library(MyServerLib
+add_library(MyServerLib 
     main.cpp
     net/EventLoop.hpp
     net/ConnectionMgr.hpp
@@ -28,10 +28,11 @@ add_library(MyServerLib
     sql/SqlCrud.hpp
     utils/Config.hpp
     utils/ThreadPool.hpp
+    utils/Logger.hpp
 )
 
 # 添加头文件路径
-target_include_directories(MyServerLib PRIVATE
+target_include_directories(MyServerLib PUBLIC
     ${CMAKE_SOURCE_DIR}/net
     ${CMAKE_SOURCE_DIR}/server
     ${CMAKE_SOURCE_DIR}/sql

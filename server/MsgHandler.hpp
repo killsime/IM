@@ -3,9 +3,9 @@
 
 #include "MQ.hpp"
 #include "Message.hpp"
-#include "../net/ConnectionMgr.hpp"
-#include "../net/FileTransfer.hpp"
-#include "../utils/ThreadPool.hpp"
+#include "ConnectionMgr.hpp"
+#include "FileTransfer.hpp"
+#include "ThreadPool.hpp"
 #include <iostream>
 #include <sstream>
 #include <thread>

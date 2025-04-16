@@ -1,7 +1,7 @@
 #include <iostream>
 #include <thread>
-#include "server/MQ.hpp"
-#include "server/Message.hpp"
+#include "MQ.hpp"
+#include "Message.hpp"
 
 // 生产者线程：向接收队列添加消息
 void producer()

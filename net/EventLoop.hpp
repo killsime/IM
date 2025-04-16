@@ -5,12 +5,13 @@
 #include "Socket.hpp"
 #include "ConnectionMgr.hpp"
 #include "Pack.hpp"
-#include "../server/MQ.hpp"
-#include "../server/Message.hpp"
+#include "MQ.hpp"
+#include "Message.hpp"
 #include <unordered_map>
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <Logger.hpp>
 
 #define MSG_PORT 9527
 #define FILE_PORT 9528
@@ -44,7 +45,7 @@ public:
 
     void run()
     {
-        printf("server is running!\n");
+        LOG_INFO("server is started successfully!")
         while (true)
         {
             auto sockets = epoll_.wait();
