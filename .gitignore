@@ -1,4 +1,6 @@
 /build/
+/.vscode/
+
 
 # 忽略测试和日志文件
 Testing/
