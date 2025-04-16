@@ -1,25 +1,37 @@
-# 添加测试可执行文件
+# tests/CMakeLists.txt
+# 查找依赖
+find_package(GTest REQUIRED)
+find_package(Threads REQUIRED)
+
+
+# 测试可执行文件
 add_executable(MyServerTests
     integration/test_integration.cpp
-    units/test_units.cpp
+    units/test_api.cpp
+    # main/mysql.cpp
 )
 
-# 添加头文件路径
+# 在测试目标的配置中添加
 target_include_directories(MyServerTests PRIVATE
-    ${CMAKE_SOURCE_DIR}/net
-    ${CMAKE_SOURCE_DIR}/server
-    ${CMAKE_SOURCE_DIR}/sql
-    ${CMAKE_SOURCE_DIR}/utils
+    ${CMAKE_SOURCE_DIR}/web  # 添加web目录到头文件搜索路径
+    ${CMAKE_SOURCE_DIR}      # 添加项目根目录
 )
 
-# 链接主项目的库
-target_link_libraries(MyServerTests PRIVATE MyServerLib)
+# 设置C++标准
+set_target_properties(MyServerTests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+)
 
-# 链接 pthread 库
-target_link_libraries(MyServerTests PRIVATE Threads::Threads)
+# 链接实际需要的模块
+target_link_libraries(MyServerTests PRIVATE
+    server_lib
+    net_lib
+    utils_lib
+    GTest::GTest
+    GTest::Main
+    Threads::Threads
+)
 
-# 链接 MySQL 库
-target_link_libraries(MyServerTests PRIVATE mysqlclient)
-
-# 添加测试
-add_test(NAME MyServerTests COMMAND MyServerTests)
+# 添加测试用例
+gtest_discover_tests(MyServerTests)

@@ -1,12 +1,11 @@
 #include "net/EventLoop.hpp"
 #include "server/MsgHandler.hpp"
 #include "Logger.hpp"
+#include "test.hpp"
 #include <iostream>
 
 int main()
 {
-    LOG_INFO("系统启动中...")
-
     // 初始化EventLoop
     EventLoop eventLoop;
     eventLoop.init();
